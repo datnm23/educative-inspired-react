@@ -26,6 +26,7 @@ import Checkout from "./pages/Checkout";
 import PaymentHistory from "./pages/PaymentHistory";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import InstructorProfile from "./pages/InstructorProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/payment-history" element={<PaymentHistory />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/instructors/:id" element={<InstructorProfile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
