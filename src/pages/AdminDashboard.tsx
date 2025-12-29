@@ -20,6 +20,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -508,6 +510,155 @@ const AdminDashboard = () => {
     filterFeatured !== "all" ||
     sortBy !== "newest";
 
+  // Export functions
+  const exportToCSV = () => {
+    const headers = [
+      "ID",
+      "Tên khóa học",
+      "Mô tả ngắn",
+      "Danh mục",
+      "Cấp độ",
+      "Giá (VND)",
+      "Giá gốc (VND)",
+      "Giảng viên",
+      "Thời lượng (giờ)",
+      "Số bài học",
+      "Số học viên",
+      "Đánh giá",
+      "Trạng thái",
+      "Nổi bật",
+      "Ngày tạo",
+      "Ngày cập nhật",
+    ];
+
+    const csvData = sortedCourses.map((course) => [
+      course.id,
+      course.title,
+      course.short_description || "",
+      course.category,
+      course.level,
+      course.price,
+      course.original_price || "",
+      course.instructor_name || "",
+      course.duration_hours || "",
+      course.total_lessons || "",
+      course.total_students || 0,
+      course.rating || 0,
+      course.is_published ? "Đã xuất bản" : "Bản nháp",
+      course.is_featured ? "Có" : "Không",
+      new Date(course.created_at).toLocaleDateString("vi-VN"),
+      new Date(course.updated_at).toLocaleDateString("vi-VN"),
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) =>
+        row.map((cell) => {
+          const cellStr = String(cell);
+          // Escape quotes and wrap in quotes if contains comma or quote
+          if (cellStr.includes(",") || cellStr.includes('"') || cellStr.includes("\n")) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(",")
+      ),
+    ].join("\n");
+
+    // Add BOM for UTF-8
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bao-cao-khoa-hoc-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Đã xuất ${sortedCourses.length} khóa học ra file CSV`);
+  };
+
+  const exportToExcel = () => {
+    const headers = [
+      "ID",
+      "Tên khóa học",
+      "Mô tả ngắn",
+      "Danh mục",
+      "Cấp độ",
+      "Giá (VND)",
+      "Giá gốc (VND)",
+      "Giảng viên",
+      "Thời lượng (giờ)",
+      "Số bài học",
+      "Số học viên",
+      "Đánh giá",
+      "Trạng thái",
+      "Nổi bật",
+      "Ngày tạo",
+      "Ngày cập nhật",
+    ];
+
+    const data = sortedCourses.map((course) => ({
+      ID: course.id,
+      "Tên khóa học": course.title,
+      "Mô tả ngắn": course.short_description || "",
+      "Danh mục": course.category,
+      "Cấp độ": course.level,
+      "Giá (VND)": course.price,
+      "Giá gốc (VND)": course.original_price || "",
+      "Giảng viên": course.instructor_name || "",
+      "Thời lượng (giờ)": course.duration_hours || "",
+      "Số bài học": course.total_lessons || "",
+      "Số học viên": course.total_students || 0,
+      "Đánh giá": course.rating || 0,
+      "Trạng thái": course.is_published ? "Đã xuất bản" : "Bản nháp",
+      "Nổi bật": course.is_featured ? "Có" : "Không",
+      "Ngày tạo": new Date(course.created_at).toLocaleDateString("vi-VN"),
+      "Ngày cập nhật": new Date(course.updated_at).toLocaleDateString("vi-VN"),
+    }));
+
+    // Create XML for Excel
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<?mso-application progid="Excel.Sheet"?>\n';
+    xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+    xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+    xml += '<Worksheet ss:Name="Báo cáo khóa học">\n';
+    xml += '<Table>\n';
+
+    // Header row
+    xml += '<Row>\n';
+    headers.forEach((header) => {
+      xml += `<Cell><Data ss:Type="String">${header}</Data></Cell>\n`;
+    });
+    xml += '</Row>\n';
+
+    // Data rows
+    data.forEach((row) => {
+      xml += '<Row>\n';
+      headers.forEach((header) => {
+        const value = row[header as keyof typeof row];
+        const type = typeof value === "number" ? "Number" : "String";
+        xml += `<Cell><Data ss:Type="${type}">${value}</Data></Cell>\n`;
+      });
+      xml += '</Row>\n';
+    });
+
+    xml += '</Table>\n';
+    xml += '</Worksheet>\n';
+    xml += '</Workbook>';
+
+    const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bao-cao-khoa-hoc-${new Date().toISOString().split("T")[0]}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Đã xuất ${sortedCourses.length} khóa học ra file Excel`);
+  };
+
   if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -638,6 +789,24 @@ const AdminDashboard = () => {
                           Xóa bộ lọc
                         </Button>
                       )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="gap-2">
+                            <Download className="w-4 h-4" />
+                            Xuất báo cáo
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={exportToCSV} className="gap-2">
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Xuất CSV
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={exportToExcel} className="gap-2">
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Xuất Excel (.xls)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button onClick={() => openCourseDialog()} className="gap-2">
                         <Plus className="w-4 h-4" />
                         Thêm khóa học
