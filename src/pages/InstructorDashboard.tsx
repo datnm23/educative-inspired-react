@@ -187,7 +187,12 @@ const InstructorDashboard = () => {
                   </div>
                   
                   <div className="flex md:flex-col gap-2">
-                    <Button variant="outline" size="sm" className="gap-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1"
+                      onClick={() => navigate(`/instructor/edit-course/${course.id}`)}
+                    >
                       <Edit className="w-3 h-3" />
                       Sửa
                     </Button>
