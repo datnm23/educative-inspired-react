@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Target } from "lucide-react";
+import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -111,6 +111,10 @@ const Navbar = () => {
                       <DropdownMenuItem onClick={() => navigate('/payment-history')}>
                         <Receipt className="w-4 h-4 mr-2" />
                         Lịch sử thanh toán
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/instructor-dashboard')}>
+                        <Presentation className="w-4 h-4 mr-2" />
+                        Quản lý giảng viên
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate('/settings')}>
