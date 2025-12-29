@@ -4,6 +4,7 @@ import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, Sh
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
+import NotificationDropdown from "@/components/NotificationDropdown";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +82,7 @@ const Navbar = () => {
             {!loading && (
               user ? (
                 <>
+                  <NotificationDropdown />
                   <Button variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => navigate('/my-learning')}>
                     <GraduationCap className="w-4 h-4" />
                   </Button>

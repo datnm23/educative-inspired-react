@@ -1,13 +1,16 @@
-import { useParams, Link } from "react-router-dom";
+import { useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
   Star, Users, BookOpen, Award, Play, Globe, 
-  Linkedin, Twitter, ArrowLeft, Clock
+  Linkedin, Twitter, ArrowLeft, Clock, UserPlus, UserMinus, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/hooks/useAuth";
+import { useInstructorFollow } from "@/hooks/useInstructorFollow";
 
 // Mock instructor data
 const instructorsData: Record<string, {
@@ -156,7 +159,28 @@ Sarah đã đóng góp vào nhiều dự án open-source lớn và là một spe
 
 const InstructorProfile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isFollowing, followInstructor, unfollowInstructor, loading: followLoading } = useInstructorFollow();
+  const [actionLoading, setActionLoading] = useState(false);
+  
   const instructor = instructorsData[id || "1"] || instructorsData["1"];
+  const following = isFollowing(instructor.id);
+
+  const handleFollowToggle = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    
+    setActionLoading(true);
+    if (following) {
+      await unfollowInstructor(instructor.id, instructor.name);
+    } else {
+      await followInstructor(instructor.id, instructor.name);
+    }
+    setActionLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -358,8 +382,20 @@ const InstructorProfile = () => {
                       </div>
                     </div>
 
-                    <Button className="w-full mt-6" variant="outline">
-                      Theo dõi giảng viên
+                    <Button 
+                      className="w-full mt-6" 
+                      variant={following ? "outline" : "default"}
+                      onClick={handleFollowToggle}
+                      disabled={actionLoading || followLoading}
+                    >
+                      {actionLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : following ? (
+                        <UserMinus className="w-4 h-4 mr-2" />
+                      ) : (
+                        <UserPlus className="w-4 h-4 mr-2" />
+                      )}
+                      {following ? 'Đang theo dõi' : 'Theo dõi giảng viên'}
                     </Button>
                   </CardContent>
                 </Card>
