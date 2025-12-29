@@ -418,34 +418,37 @@ const CourseDetail = () => {
                 {/* Instructor */}
                 <div>
                   <h2 className="text-2xl font-bold text-foreground mb-6">Your Instructor</h2>
-                  <div className="bg-card border border-border rounded-xl p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
-                        <span className="text-primary font-bold text-2xl">
-                          {courseData.instructor.name.charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-semibold text-foreground">{courseData.instructor.name}</h3>
-                        <p className="text-muted-foreground mb-3">{courseData.instructor.title}</p>
-                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
-                          <span className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-yellow-500" />
-                            {courseData.instructor.rating} rating
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-4 h-4" />
-                            {courseData.instructor.students.toLocaleString()} students
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <BookOpen className="w-4 h-4" />
-                            {courseData.instructor.courses} courses
+                  <Link to="/instructors/1" className="block">
+                    <div className="bg-card border border-border rounded-xl p-6 hover:shadow-card-hover transition-all duration-300 group">
+                      <div className="flex items-start gap-4">
+                        <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                          <span className="text-primary font-bold text-2xl">
+                            {courseData.instructor.name.charAt(0)}
                           </span>
                         </div>
-                        <p className="text-foreground">{courseData.instructor.bio}</p>
+                        <div>
+                          <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors">{courseData.instructor.name}</h3>
+                          <p className="text-muted-foreground mb-3">{courseData.instructor.title}</p>
+                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
+                            <span className="flex items-center gap-1">
+                              <Star className="w-4 h-4 text-yellow-500" />
+                              {courseData.instructor.rating} rating
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-4 h-4" />
+                              {courseData.instructor.students.toLocaleString()} students
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="w-4 h-4" />
+                              {courseData.instructor.courses} courses
+                            </span>
+                          </div>
+                          <p className="text-foreground">{courseData.instructor.bio}</p>
+                          <p className="text-primary text-sm mt-3 font-medium">Xem hồ sơ giảng viên →</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 </div>
 
                 {/* Reviews */}
