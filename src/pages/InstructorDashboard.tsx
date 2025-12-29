@@ -1,30 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, BookOpen, Users, Bell, TrendingUp, Edit, Trash2, Send } from "lucide-react";
+import { Plus, BookOpen, Users, Bell, TrendingUp, Edit, Trash2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -77,25 +58,12 @@ const InstructorDashboard = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [courses, setCourses] = useState<Course[]>(mockCourses);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [newCourse, setNewCourse] = useState({
-    title: "",
-    description: "",
-    price: "",
-    category: "",
-    level: "",
-    thumbnail: "",
-  });
 
   // Redirect if not logged in
   if (!loading && !user) {
     navigate('/auth');
     return null;
   }
-
-  const instructorId = "instructor-1"; // Mock instructor ID
-  const instructorName = user?.email?.split('@')[0] || "Giảng viên";
 
   const stats = {
     totalStudents: courses.reduce((acc, c) => acc + c.students, 0),
@@ -104,63 +72,6 @@ const InstructorDashboard = () => {
     totalRevenue: courses.reduce((acc, c) => acc + c.price * c.students * 0.7, 0),
   };
 
-  const handleCreateCourse = async () => {
-    if (!newCourse.title || !newCourse.description || !newCourse.price) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
-
-    const courseId = `course-${Date.now()}`;
-    const course: Course = {
-      id: courseId,
-      title: newCourse.title,
-      description: newCourse.description,
-      price: parseInt(newCourse.price),
-      category: newCourse.category || "Khác",
-      level: newCourse.level || "Cơ bản",
-      thumbnail: newCourse.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400",
-      students: 0,
-      rating: 0,
-      status: "published",
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    setCourses([course, ...courses]);
-    setIsDialogOpen(false);
-    setNewCourse({ title: "", description: "", price: "", category: "", level: "", thumbnail: "" });
-
-    toast.success("Đã tạo khóa học mới!");
-
-    // Send notification to followers
-    await sendNotificationToFollowers(courseId, course.title);
-  };
-
-  const sendNotificationToFollowers = async (courseId: string, courseTitle: string) => {
-    setIsSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-course-notification', {
-        body: {
-          instructor_id: instructorId,
-          instructor_name: instructorName,
-          course_title: courseTitle,
-          course_id: courseId,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.notifications_sent > 0) {
-        toast.success(`Đã gửi thông báo đến ${data.notifications_sent} người theo dõi`);
-      } else {
-        toast.info("Chưa có người theo dõi để gửi thông báo");
-      }
-    } catch (error) {
-      console.error("Error sending notifications:", error);
-      toast.error("Không thể gửi thông báo");
-    } finally {
-      setIsSending(false);
-    }
-  };
 
   const handleDeleteCourse = (courseId: string) => {
     setCourses(courses.filter(c => c.id !== courseId));
@@ -183,120 +94,10 @@ const InstructorDashboard = () => {
             <p className="text-muted-foreground mt-1">Quản lý khóa học và theo dõi hiệu suất</p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Tạo khóa học mới
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Tạo khóa học mới</DialogTitle>
-                <DialogDescription>
-                  Điền thông tin khóa học. Thông báo sẽ được gửi tự động đến người theo dõi.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Tên khóa học *</Label>
-                  <Input
-                    id="title"
-                    placeholder="VD: React Master Class"
-                    value={newCourse.title}
-                    onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
-                  />
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Mô tả *</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Mô tả ngắn về khóa học..."
-                    value={newCourse.description}
-                    onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="price">Giá (VND) *</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      placeholder="1490000"
-                      value={newCourse.price}
-                      onChange={(e) => setNewCourse({ ...newCourse, price: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="level">Cấp độ</Label>
-                    <Select
-                      value={newCourse.level}
-                      onValueChange={(value) => setNewCourse({ ...newCourse, level: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn cấp độ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Cơ bản">Cơ bản</SelectItem>
-                        <SelectItem value="Trung cấp">Trung cấp</SelectItem>
-                        <SelectItem value="Nâng cao">Nâng cao</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Danh mục</Label>
-                  <Select
-                    value={newCourse.category}
-                    onValueChange={(value) => setNewCourse({ ...newCourse, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn danh mục" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Frontend">Frontend</SelectItem>
-                      <SelectItem value="Backend">Backend</SelectItem>
-                      <SelectItem value="Mobile">Mobile</SelectItem>
-                      <SelectItem value="DevOps">DevOps</SelectItem>
-                      <SelectItem value="Data Science">Data Science</SelectItem>
-                      <SelectItem value="AI/ML">AI/ML</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="thumbnail">URL ảnh bìa</Label>
-                  <Input
-                    id="thumbnail"
-                    placeholder="https://..."
-                    value={newCourse.thumbnail}
-                    onChange={(e) => setNewCourse({ ...newCourse, thumbnail: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Hủy
-                </Button>
-                <Button onClick={handleCreateCourse} disabled={isSending} className="gap-2">
-                  {isSending ? (
-                    <>Đang xử lý...</>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Tạo & Thông báo
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button className="gap-2" onClick={() => navigate("/instructor/create-course")}>
+            <Plus className="w-4 h-4" />
+            Tạo khóa học mới
+          </Button>
         </div>
 
         {/* Stats */}
@@ -407,7 +208,7 @@ const InstructorDashboard = () => {
                 <div className="text-center py-12 text-muted-foreground">
                   <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Bạn chưa có khóa học nào</p>
-                  <Button className="mt-4" onClick={() => setIsDialogOpen(true)}>
+                  <Button className="mt-4" onClick={() => navigate("/instructor/create-course")}>
                     Tạo khóa học đầu tiên
                   </Button>
                 </div>
