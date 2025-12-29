@@ -4,6 +4,7 @@ import { Mail, Twitter, Linkedin, Github, Youtube } from "lucide-react";
 const footerLinks = {
   Product: [
     { label: "Khóa học", href: "/courses" },
+    { label: "Blog", href: "/blog" },
     { label: "Bảng giá", href: "/pricing" },
     { label: "Dashboard", href: "/dashboard" },
   ],
