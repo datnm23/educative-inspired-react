@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
+import EditCourse from "./pages/EditCourse";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/instructors/:id" element={<InstructorProfile />} />
               <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
               <Route path="/instructor/create-course" element={<CreateCourse />} />
+              <Route path="/instructor/edit-course/:id" element={<EditCourse />} />
               <Route path="/become-instructor" element={<BecomeInstructor />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="*" element={<NotFound />} />
