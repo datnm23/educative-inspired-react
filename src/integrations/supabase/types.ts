@@ -38,6 +38,72 @@ export type Database = {
         }
         Relationships: []
       }
+      courses: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          duration_hours: number | null
+          id: string
+          instructor_id: string | null
+          instructor_name: string | null
+          is_featured: boolean | null
+          is_published: boolean | null
+          level: string
+          original_price: number | null
+          price: number
+          rating: number | null
+          short_description: string | null
+          thumbnail_url: string | null
+          title: string
+          total_lessons: number | null
+          total_students: number | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          duration_hours?: number | null
+          id?: string
+          instructor_id?: string | null
+          instructor_name?: string | null
+          is_featured?: boolean | null
+          is_published?: boolean | null
+          level?: string
+          original_price?: number | null
+          price?: number
+          rating?: number | null
+          short_description?: string | null
+          thumbnail_url?: string | null
+          title: string
+          total_lessons?: number | null
+          total_students?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          duration_hours?: number | null
+          id?: string
+          instructor_id?: string | null
+          instructor_name?: string | null
+          is_featured?: boolean | null
+          is_published?: boolean | null
+          level?: string
+          original_price?: number | null
+          price?: number
+          rating?: number | null
+          short_description?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          total_lessons?: number | null
+          total_students?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       instructor_follows: {
         Row: {
           created_at: string

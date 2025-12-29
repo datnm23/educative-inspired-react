@@ -10,11 +10,17 @@ import {
   UserPlus,
   Search,
   MoreHorizontal,
+  Plus,
+  Edit,
+  Eye,
+  EyeOff,
+  Star,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -35,6 +41,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -54,6 +61,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,24 +74,70 @@ interface UserData {
   roles: string[];
 }
 
+interface Course {
+  id: string;
+  title: string;
+  description: string | null;
+  short_description: string | null;
+  price: number;
+  original_price: number | null;
+  category: string;
+  level: string;
+  thumbnail_url: string | null;
+  instructor_id: string | null;
+  instructor_name: string | null;
+  duration_hours: number | null;
+  total_lessons: number | null;
+  is_published: boolean | null;
+  is_featured: boolean | null;
+  rating: number | null;
+  total_students: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  
+  // Users state
   const [users, setUsers] = useState<UserData[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [userSearchTerm, setUserSearchTerm] = useState("");
   const [isAddRoleDialogOpen, setIsAddRoleDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
+  
+  // Courses state
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [courseSearchTerm, setCourseSearchTerm] = useState("");
+  const [isCourseDialogOpen, setIsCourseDialogOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [courseForm, setCourseForm] = useState({
+    title: "",
+    description: "",
+    short_description: "",
+    price: "",
+    original_price: "",
+    category: "Frontend",
+    level: "Cơ bản",
+    thumbnail_url: "",
+    instructor_name: "",
+    duration_hours: "",
+    total_lessons: "",
+    is_published: false,
+    is_featured: false,
+  });
+  
   const [isLoading, setIsLoading] = useState(true);
 
-  // Stats (mock for demo)
-  const stats = {
-    totalUsers: 1250,
-    totalCourses: 45,
-    totalRevenue: 125000000,
-    activeUsers: 892,
-  };
+  // Stats
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalCourses: 0,
+    totalRevenue: 0,
+    publishedCourses: 0,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -101,19 +155,18 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
+      fetchCourses();
     }
   }, [isAdmin]);
 
   const fetchUsers = async () => {
     try {
-      // Fetch users with their roles
       const { data: rolesData, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role");
 
       if (rolesError) throw rolesError;
 
-      // Group roles by user
       const userRolesMap = new Map<string, string[]>();
       rolesData?.forEach((item) => {
         const existing = userRolesMap.get(item.user_id) || [];
@@ -121,18 +174,39 @@ const AdminDashboard = () => {
         userRolesMap.set(item.user_id, existing);
       });
 
-      // Create user list from roles data
       const uniqueUserIds = [...new Set(rolesData?.map((r) => r.user_id) || [])];
       const usersData: UserData[] = uniqueUserIds.map((userId) => ({
         id: userId,
-        email: `user_${userId.slice(0, 8)}@example.com`, // Placeholder
+        email: `user_${userId.slice(0, 8)}@example.com`,
         created_at: new Date().toISOString(),
         roles: userRolesMap.get(userId) || [],
       }));
 
       setUsers(usersData);
+      setStats(prev => ({ ...prev, totalUsers: uniqueUserIds.length }));
     } catch (error) {
       console.error("Error fetching users:", error);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("courses")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setCourses(data || []);
+      setStats(prev => ({
+        ...prev,
+        totalCourses: data?.length || 0,
+        publishedCourses: data?.filter(c => c.is_published).length || 0,
+        totalRevenue: data?.reduce((acc, c) => acc + (c.price * (c.total_students || 0)), 0) || 0,
+      }));
+    } catch (error) {
+      console.error("Error fetching courses:", error);
     } finally {
       setIsLoading(false);
     }
@@ -188,6 +262,144 @@ const AdminDashboard = () => {
     }
   };
 
+  // Course CRUD functions
+  const openCourseDialog = (course?: Course) => {
+    if (course) {
+      setEditingCourse(course);
+      setCourseForm({
+        title: course.title,
+        description: course.description || "",
+        short_description: course.short_description || "",
+        price: course.price.toString(),
+        original_price: course.original_price?.toString() || "",
+        category: course.category,
+        level: course.level,
+        thumbnail_url: course.thumbnail_url || "",
+        instructor_name: course.instructor_name || "",
+        duration_hours: course.duration_hours?.toString() || "",
+        total_lessons: course.total_lessons?.toString() || "",
+        is_published: course.is_published || false,
+        is_featured: course.is_featured || false,
+      });
+    } else {
+      setEditingCourse(null);
+      setCourseForm({
+        title: "",
+        description: "",
+        short_description: "",
+        price: "",
+        original_price: "",
+        category: "Frontend",
+        level: "Cơ bản",
+        thumbnail_url: "",
+        instructor_name: "",
+        duration_hours: "",
+        total_lessons: "",
+        is_published: false,
+        is_featured: false,
+      });
+    }
+    setIsCourseDialogOpen(true);
+  };
+
+  const handleSaveCourse = async () => {
+    if (!courseForm.title || !courseForm.price) {
+      toast.error("Vui lòng điền tên và giá khóa học");
+      return;
+    }
+
+    try {
+      const courseData = {
+        title: courseForm.title,
+        description: courseForm.description || null,
+        short_description: courseForm.short_description || null,
+        price: parseInt(courseForm.price),
+        original_price: courseForm.original_price ? parseInt(courseForm.original_price) : null,
+        category: courseForm.category,
+        level: courseForm.level,
+        thumbnail_url: courseForm.thumbnail_url || null,
+        instructor_name: courseForm.instructor_name || null,
+        duration_hours: courseForm.duration_hours ? parseInt(courseForm.duration_hours) : null,
+        total_lessons: courseForm.total_lessons ? parseInt(courseForm.total_lessons) : null,
+        is_published: courseForm.is_published,
+        is_featured: courseForm.is_featured,
+      };
+
+      if (editingCourse) {
+        const { error } = await supabase
+          .from("courses")
+          .update(courseData)
+          .eq("id", editingCourse.id);
+
+        if (error) throw error;
+        toast.success("Đã cập nhật khóa học");
+      } else {
+        const { error } = await supabase
+          .from("courses")
+          .insert(courseData);
+
+        if (error) throw error;
+        toast.success("Đã tạo khóa học mới");
+      }
+
+      setIsCourseDialogOpen(false);
+      fetchCourses();
+    } catch (error) {
+      console.error("Error saving course:", error);
+      toast.error("Không thể lưu khóa học");
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm("Bạn có chắc muốn xóa khóa học này?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("courses")
+        .delete()
+        .eq("id", courseId);
+
+      if (error) throw error;
+      toast.success("Đã xóa khóa học");
+      fetchCourses();
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      toast.error("Không thể xóa khóa học");
+    }
+  };
+
+  const handleTogglePublish = async (course: Course) => {
+    try {
+      const { error } = await supabase
+        .from("courses")
+        .update({ is_published: !course.is_published })
+        .eq("id", course.id);
+
+      if (error) throw error;
+      toast.success(course.is_published ? "Đã ẩn khóa học" : "Đã xuất bản khóa học");
+      fetchCourses();
+    } catch (error) {
+      console.error("Error toggling publish:", error);
+      toast.error("Không thể cập nhật trạng thái");
+    }
+  };
+
+  const handleToggleFeatured = async (course: Course) => {
+    try {
+      const { error } = await supabase
+        .from("courses")
+        .update({ is_featured: !course.is_featured })
+        .eq("id", course.id);
+
+      if (error) throw error;
+      toast.success(course.is_featured ? "Đã bỏ nổi bật" : "Đã đánh dấu nổi bật");
+      fetchCourses();
+    } catch (error) {
+      console.error("Error toggling featured:", error);
+      toast.error("Không thể cập nhật");
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -208,8 +420,14 @@ const AdminDashboard = () => {
 
   const filteredUsers = users.filter(
     (u) =>
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.id.toLowerCase().includes(searchTerm.toLowerCase())
+      u.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      u.id.toLowerCase().includes(userSearchTerm.toLowerCase())
+  );
+
+  const filteredCourses = courses.filter(
+    (c) =>
+      c.title.toLowerCase().includes(courseSearchTerm.toLowerCase()) ||
+      c.category.toLowerCase().includes(courseSearchTerm.toLowerCase())
   );
 
   if (authLoading || roleLoading) {
@@ -246,76 +464,208 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Tổng người dùng
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Người dùng có vai trò</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.totalUsers.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                +180 trong tháng này
-              </p>
+              <div className="text-2xl font-bold">{stats.totalUsers}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Tổng khóa học
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Tổng khóa học</CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalCourses}</div>
               <p className="text-xs text-muted-foreground">
-                +5 khóa mới trong tuần
+                {stats.publishedCourses} đã xuất bản
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Doanh thu</CardTitle>
+              <CardTitle className="text-sm font-medium">Doanh thu ước tính</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(stats.totalRevenue)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                +20% so với tháng trước
-              </p>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Người dùng hoạt động
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Khóa học đã xuất bản</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.activeUsers.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                71% tổng người dùng
-              </p>
+              <div className="text-2xl font-bold">{stats.publishedCourses}</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="users" className="space-y-4">
+        <Tabs defaultValue="courses" className="space-y-4">
           <TabsList>
+            <TabsTrigger value="courses">Quản lý khóa học</TabsTrigger>
             <TabsTrigger value="users">Quản lý người dùng</TabsTrigger>
             <TabsTrigger value="roles">Phân quyền</TabsTrigger>
           </TabsList>
 
+          {/* Courses Tab */}
+          <TabsContent value="courses" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                  <div>
+                    <CardTitle>Danh sách khóa học</CardTitle>
+                    <CardDescription>
+                      Quản lý tất cả khóa học trong hệ thống
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Tìm kiếm..."
+                        className="pl-9 w-64"
+                        value={courseSearchTerm}
+                        onChange={(e) => setCourseSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={() => openCourseDialog()} className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      Thêm khóa học
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : filteredCourses.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Chưa có khóa học nào</p>
+                    <Button className="mt-4" onClick={() => openCourseDialog()}>
+                      Tạo khóa học đầu tiên
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Khóa học</TableHead>
+                        <TableHead>Danh mục</TableHead>
+                        <TableHead>Giá</TableHead>
+                        <TableHead>Học viên</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead className="text-right">Hành động</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCourses.map((course) => (
+                        <TableRow key={course.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {course.thumbnail_url && (
+                                <img
+                                  src={course.thumbnail_url}
+                                  alt={course.title}
+                                  className="w-16 h-10 object-cover rounded"
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium">{course.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {course.instructor_name || "Chưa có giảng viên"}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{course.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{formatCurrency(course.price)}</p>
+                              {course.original_price && (
+                                <p className="text-xs text-muted-foreground line-through">
+                                  {formatCurrency(course.original_price)}
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{course.total_students || 0}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {course.is_published ? (
+                                <Badge variant="default">Đã xuất bản</Badge>
+                              ) : (
+                                <Badge variant="secondary">Bản nháp</Badge>
+                              )}
+                              {course.is_featured && (
+                                <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                                  <Star className="w-3 h-3 mr-1" />
+                                  Nổi bật
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openCourseDialog(course)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Chỉnh sửa
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleTogglePublish(course)}>
+                                  {course.is_published ? (
+                                    <>
+                                      <EyeOff className="w-4 h-4 mr-2" />
+                                      Ẩn khóa học
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      Xuất bản
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleToggleFeatured(course)}>
+                                  <Star className="w-4 h-4 mr-2" />
+                                  {course.is_featured ? "Bỏ nổi bật" : "Đánh dấu nổi bật"}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteCourse(course.id)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Xóa khóa học
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Users Tab */}
           <TabsContent value="users" className="space-y-4">
             <Card>
               <CardHeader>
@@ -326,25 +676,19 @@ const AdminDashboard = () => {
                       Quản lý tài khoản và quyền truy cập
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Tìm kiếm..."
-                        className="pl-9 w-64"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Tìm kiếm..."
+                      className="pl-9 w-64"
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                    />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : filteredUsers.length === 0 ? (
+                {filteredUsers.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Chưa có người dùng nào có vai trò</p>
@@ -367,10 +711,7 @@ const AdminDashboard = () => {
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
                               {userData.roles.map((role) => (
-                                <Badge
-                                  key={role}
-                                  variant={getRoleBadgeVariant(role)}
-                                >
+                                <Badge key={role} variant={getRoleBadgeVariant(role)}>
                                   {role}
                                 </Badge>
                               ))}
@@ -417,6 +758,7 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
+          {/* Roles Tab */}
           <TabsContent value="roles" className="space-y-4">
             <Card>
               <CardHeader>
@@ -437,8 +779,7 @@ const AdminDashboard = () => {
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground">
-                          Quyền cao nhất. Có thể quản lý người dùng, khóa học,
-                          và toàn bộ hệ thống.
+                          Quyền cao nhất. Có thể quản lý người dùng, khóa học, và toàn bộ hệ thống.
                         </p>
                       </CardContent>
                     </Card>
@@ -452,7 +793,7 @@ const AdminDashboard = () => {
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground">
-                          Có thể tạo và quản lý khóa học, xem thống kê học viên.
+                          Có thể tạo và quản lý khóa học của mình, xem thống kê học viên.
                         </p>
                       </CardContent>
                     </Card>
@@ -481,10 +822,7 @@ const AdminDashboard = () => {
                         onChange={(e) => setSelectedUserId(e.target.value)}
                         className="max-w-xs font-mono"
                       />
-                      <Select
-                        value={selectedRole}
-                        onValueChange={setSelectedRole}
-                      >
+                      <Select value={selectedRole} onValueChange={setSelectedRole}>
                         <SelectTrigger className="w-40">
                           <SelectValue placeholder="Chọn vai trò" />
                         </SelectTrigger>
@@ -526,13 +864,190 @@ const AdminDashboard = () => {
               </Select>
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsAddRoleDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsAddRoleDialogOpen(false)}>
                 Hủy
               </Button>
               <Button onClick={handleAddRole}>Thêm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Course Dialog */}
+        <Dialog open={isCourseDialogOpen} onOpenChange={setIsCourseDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingCourse ? "Chỉnh sửa khóa học" : "Thêm khóa học mới"}
+              </DialogTitle>
+              <DialogDescription>
+                Điền thông tin chi tiết cho khóa học
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title">Tên khóa học *</Label>
+                <Input
+                  id="title"
+                  value={courseForm.title}
+                  onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                  placeholder="VD: React Master Class"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="short_description">Mô tả ngắn</Label>
+                <Input
+                  id="short_description"
+                  value={courseForm.short_description}
+                  onChange={(e) => setCourseForm({ ...courseForm, short_description: e.target.value })}
+                  placeholder="Mô tả ngắn gọn về khóa học..."
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="description">Mô tả chi tiết</Label>
+                <Textarea
+                  id="description"
+                  value={courseForm.description}
+                  onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                  placeholder="Mô tả đầy đủ về nội dung khóa học..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Giá (VND) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={courseForm.price}
+                    onChange={(e) => setCourseForm({ ...courseForm, price: e.target.value })}
+                    placeholder="1490000"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="original_price">Giá gốc (VND)</Label>
+                  <Input
+                    id="original_price"
+                    type="number"
+                    value={courseForm.original_price}
+                    onChange={(e) => setCourseForm({ ...courseForm, original_price: e.target.value })}
+                    placeholder="1990000"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Danh mục</Label>
+                  <Select
+                    value={courseForm.category}
+                    onValueChange={(value) => setCourseForm({ ...courseForm, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Frontend">Frontend</SelectItem>
+                      <SelectItem value="Backend">Backend</SelectItem>
+                      <SelectItem value="Mobile">Mobile</SelectItem>
+                      <SelectItem value="DevOps">DevOps</SelectItem>
+                      <SelectItem value="Data Science">Data Science</SelectItem>
+                      <SelectItem value="AI/ML">AI/ML</SelectItem>
+                      <SelectItem value="Khác">Khác</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Cấp độ</Label>
+                  <Select
+                    value={courseForm.level}
+                    onValueChange={(value) => setCourseForm({ ...courseForm, level: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Cơ bản">Cơ bản</SelectItem>
+                      <SelectItem value="Trung cấp">Trung cấp</SelectItem>
+                      <SelectItem value="Nâng cao">Nâng cao</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="duration_hours">Thời lượng (giờ)</Label>
+                  <Input
+                    id="duration_hours"
+                    type="number"
+                    value={courseForm.duration_hours}
+                    onChange={(e) => setCourseForm({ ...courseForm, duration_hours: e.target.value })}
+                    placeholder="40"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="total_lessons">Số bài học</Label>
+                  <Input
+                    id="total_lessons"
+                    type="number"
+                    value={courseForm.total_lessons}
+                    onChange={(e) => setCourseForm({ ...courseForm, total_lessons: e.target.value })}
+                    placeholder="120"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="instructor_name">Tên giảng viên</Label>
+                <Input
+                  id="instructor_name"
+                  value={courseForm.instructor_name}
+                  onChange={(e) => setCourseForm({ ...courseForm, instructor_name: e.target.value })}
+                  placeholder="Nguyễn Văn A"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="thumbnail_url">URL ảnh bìa</Label>
+                <Input
+                  id="thumbnail_url"
+                  value={courseForm.thumbnail_url}
+                  onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="is_published"
+                    checked={courseForm.is_published}
+                    onCheckedChange={(checked) => setCourseForm({ ...courseForm, is_published: checked })}
+                  />
+                  <Label htmlFor="is_published">Xuất bản ngay</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="is_featured"
+                    checked={courseForm.is_featured}
+                    onCheckedChange={(checked) => setCourseForm({ ...courseForm, is_featured: checked })}
+                  />
+                  <Label htmlFor="is_featured">Đánh dấu nổi bật</Label>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCourseDialogOpen(false)}>
+                Hủy
+              </Button>
+              <Button onClick={handleSaveCourse}>
+                {editingCourse ? "Cập nhật" : "Tạo khóa học"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
