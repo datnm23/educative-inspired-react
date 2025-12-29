@@ -5,18 +5,25 @@ import { useAuth } from '@/hooks/useAuth';
 type AppRole = 'admin' | 'instructor' | 'student';
 
 export const useUserRole = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for auth to finish loading first
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+    
     if (user) {
+      setLoading(true); // Reset loading when fetching
       fetchRoles();
     } else {
       setRoles([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const fetchRoles = async () => {
     if (!user) return;

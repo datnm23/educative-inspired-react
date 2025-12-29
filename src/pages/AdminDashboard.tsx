@@ -160,11 +160,13 @@ const AdminDashboard = () => {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (!roleLoading && user && !isAdmin) {
+    // Only check permission after both auth and role loading are complete
+    if (!authLoading && !roleLoading && user && !isAdmin) {
+      console.log('Permission check failed - isAdmin:', isAdmin, 'roleLoading:', roleLoading);
       toast.error("Bạn không có quyền truy cập trang này");
       navigate("/");
     }
-  }, [roleLoading, isAdmin, user, navigate]);
+  }, [authLoading, roleLoading, isAdmin, user, navigate]);
 
   useEffect(() => {
     if (isAdmin) {
