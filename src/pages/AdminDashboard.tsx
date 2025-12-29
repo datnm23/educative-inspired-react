@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -22,6 +22,7 @@ import {
   ArrowDown,
   Download,
   FileSpreadsheet,
+  BarChart3,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -74,6 +75,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
+import AdminCharts from "@/components/admin/AdminCharts";
+import Pagination from "@/components/admin/Pagination";
 
 interface UserData {
   id: string;
@@ -144,6 +147,15 @@ const AdminDashboard = () => {
   });
   
   const [isLoading, setIsLoading] = useState(true);
+  const [showCharts, setShowCharts] = useState(true);
+  
+  // Pagination state for courses
+  const [courseCurrentPage, setCourseCurrentPage] = useState(1);
+  const [coursePageSize, setCoursePageSize] = useState(10);
+  
+  // Pagination state for users
+  const [userCurrentPage, setUserCurrentPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(10);
 
   // Stats
   const [stats, setStats] = useState({
@@ -495,6 +507,31 @@ const AdminDashboard = () => {
     }
   });
 
+  // Paginated courses
+  const paginatedCourses = useMemo(() => {
+    const startIndex = (courseCurrentPage - 1) * coursePageSize;
+    return sortedCourses.slice(startIndex, startIndex + coursePageSize);
+  }, [sortedCourses, courseCurrentPage, coursePageSize]);
+
+  const totalCoursePages = Math.ceil(sortedCourses.length / coursePageSize);
+
+  // Paginated users
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (userCurrentPage - 1) * userPageSize;
+    return filteredUsers.slice(startIndex, startIndex + userPageSize);
+  }, [filteredUsers, userCurrentPage, userPageSize]);
+
+  const totalUserPages = Math.ceil(filteredUsers.length / userPageSize);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCourseCurrentPage(1);
+  }, [courseSearchTerm, filterCategory, filterLevel, filterStatus, filterFeatured, sortBy]);
+
+  useEffect(() => {
+    setUserCurrentPage(1);
+  }, [userSearchTerm]);
+
   const clearFilters = () => {
     setCourseSearchTerm("");
     setFilterCategory("all");
@@ -735,6 +772,21 @@ const AdminDashboard = () => {
               <div className="text-2xl font-bold">{stats.publishedCourses}</div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Charts Section */}
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCharts(!showCharts)}
+            className="gap-2 mb-4"
+          >
+            <BarChart3 className="h-4 w-4" />
+            {showCharts ? "Ẩn biểu đồ" : "Hiện biểu đồ"}
+          </Button>
+          
+          {showCharts && <AdminCharts courses={courses} />}
         </div>
 
         {/* Tabs */}
@@ -981,7 +1033,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedCourses.map((course) => (
+                      {paginatedCourses.map((course) => (
                         <TableRow key={course.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
@@ -1074,6 +1126,21 @@ const AdminDashboard = () => {
                     </TableBody>
                   </Table>
                 )}
+                
+                {/* Course Pagination */}
+                {sortedCourses.length > 0 && (
+                  <Pagination
+                    currentPage={courseCurrentPage}
+                    totalPages={totalCoursePages}
+                    pageSize={coursePageSize}
+                    totalItems={sortedCourses.length}
+                    onPageChange={setCourseCurrentPage}
+                    onPageSizeChange={(size) => {
+                      setCoursePageSize(size);
+                      setCourseCurrentPage(1);
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1116,7 +1183,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((userData) => (
+                      {paginatedUsers.map((userData) => (
                         <TableRow key={userData.id}>
                           <TableCell className="font-mono text-sm">
                             {userData.id.slice(0, 8)}...
@@ -1166,6 +1233,21 @@ const AdminDashboard = () => {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+                
+                {/* User Pagination */}
+                {filteredUsers.length > 0 && (
+                  <Pagination
+                    currentPage={userCurrentPage}
+                    totalPages={totalUserPages}
+                    pageSize={userPageSize}
+                    totalItems={filteredUsers.length}
+                    onPageChange={setUserCurrentPage}
+                    onPageSizeChange={(size) => {
+                      setUserPageSize(size);
+                      setUserCurrentPage(1);
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>
