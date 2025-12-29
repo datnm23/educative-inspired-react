@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 
 const navItems = [
   { label: "Explore", href: "/courses", hasDropdown: false },
+  { label: "Dashboard", href: "/dashboard", hasDropdown: false },
   { label: "Pricing", href: "#" },
   { label: "For Business", href: "#" },
-  { label: "Resources", href: "#", hasDropdown: true },
 ];
 
 const Navbar = () => {
