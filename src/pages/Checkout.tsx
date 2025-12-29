@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,15 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   CreditCard, Lock, ArrowLeft, CheckCircle2, ShoppingCart,
-  Loader2, MapPin, Tag, X, Check
+  Loader2, MapPin, Tag, X, Check, Building2, Wallet
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock discount codes
 const DISCOUNT_CODES: Record<string, { percent: number; description: string }> = {
@@ -30,6 +32,8 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [processing, setProcessing] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [loadingAddress, setLoadingAddress] = useState(true);
+  const [saveAddress, setSaveAddress] = useState(true);
 
   // Form state - Payment
   const [cardNumber, setCardNumber] = useState("");
@@ -39,18 +43,59 @@ const Checkout = () => {
 
   // Form state - Billing Address
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState(user?.email || "");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("Việt Nam");
+
+  // Bank transfer info
+  const [bankName] = useState("Vietcombank");
+  const [bankAccount] = useState("1234567890");
+  const [bankHolder] = useState("CONG TY TNHH EDULEARN");
 
   // Discount code
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; percent: number } | null>(null);
   const [discountError, setDiscountError] = useState("");
 
-  if (authLoading) {
+  // Load saved address
+  useEffect(() => {
+    const loadSavedAddress = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_addresses')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_default', true)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+          setFullName(data.full_name || "");
+          setEmail(data.email || user.email || "");
+          setPhone(data.phone || "");
+          setAddress(data.address || "");
+          setCity(data.city || "");
+          setCountry(data.country || "Việt Nam");
+        } else {
+          setEmail(user.email || "");
+        }
+      } catch (error) {
+        console.error("Error loading address:", error);
+        setEmail(user?.email || "");
+      } finally {
+        setLoadingAddress(false);
+      }
+    };
+
+    loadSavedAddress();
+  }, [user]);
+
+  if (authLoading || loadingAddress) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -93,9 +138,50 @@ const Checkout = () => {
   const discountAmount = appliedDiscount ? (total * appliedDiscount.percent) / 100 : 0;
   const finalTotal = total - discountAmount;
 
+  const saveUserAddress = async () => {
+    if (!user || !saveAddress) return;
+
+    try {
+      // Check if address exists
+      const { data: existing } = await supabase
+        .from('user_addresses')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      const addressData = {
+        user_id: user.id,
+        full_name: fullName,
+        email,
+        phone,
+        address,
+        city,
+        country,
+        is_default: true,
+      };
+
+      if (existing) {
+        await supabase
+          .from('user_addresses')
+          .update(addressData)
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('user_addresses')
+          .insert(addressData);
+      }
+    } catch (error) {
+      console.error("Error saving address:", error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
+
+    // Save address if checkbox is checked
+    await saveUserAddress();
 
     // Simulate payment processing
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -233,6 +319,17 @@ const Checkout = () => {
                         placeholder="TP. Hồ Chí Minh"
                       />
                     </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="saveAddress"
+                        checked={saveAddress}
+                        onCheckedChange={(checked) => setSaveAddress(checked as boolean)}
+                      />
+                      <Label htmlFor="saveAddress" className="text-sm cursor-pointer">
+                        Lưu địa chỉ cho lần thanh toán sau
+                      </Label>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -240,87 +337,174 @@ const Checkout = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5" />
+                      <Wallet className="w-5 h-5" />
                       Phương thức thanh toán
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
+                      <div className={`flex items-center space-x-2 p-4 border rounded-lg transition-colors ${paymentMethod === 'card' ? 'border-primary bg-primary/5' : ''}`}>
                         <RadioGroupItem value="card" id="card" />
-                        <Label htmlFor="card" className="flex-1 cursor-pointer">
-                          Thẻ tín dụng / Ghi nợ
+                        <Label htmlFor="card" className="flex-1 cursor-pointer flex items-center gap-3">
+                          <CreditCard className="w-5 h-5 text-muted-foreground" />
+                          <span>Thẻ tín dụng / Ghi nợ</span>
                         </Label>
                         <div className="flex gap-2">
                           <div className="w-10 h-6 bg-muted rounded flex items-center justify-center text-xs font-bold">VISA</div>
                           <div className="w-10 h-6 bg-muted rounded flex items-center justify-center text-xs font-bold">MC</div>
                         </div>
                       </div>
+
+                      <div className={`flex items-center space-x-2 p-4 border rounded-lg transition-colors ${paymentMethod === 'paypal' ? 'border-primary bg-primary/5' : ''}`}>
+                        <RadioGroupItem value="paypal" id="paypal" />
+                        <Label htmlFor="paypal" className="flex-1 cursor-pointer flex items-center gap-3">
+                          <div className="w-5 h-5 bg-[#003087] rounded text-white text-xs font-bold flex items-center justify-center">P</div>
+                          <span>PayPal</span>
+                        </Label>
+                        <div className="w-16 h-6 bg-[#003087] rounded flex items-center justify-center text-white text-xs font-bold">
+                          PayPal
+                        </div>
+                      </div>
+
+                      <div className={`flex items-center space-x-2 p-4 border rounded-lg transition-colors ${paymentMethod === 'bank' ? 'border-primary bg-primary/5' : ''}`}>
+                        <RadioGroupItem value="bank" id="bank" />
+                        <Label htmlFor="bank" className="flex-1 cursor-pointer flex items-center gap-3">
+                          <Building2 className="w-5 h-5 text-muted-foreground" />
+                          <span>Chuyển khoản ngân hàng</span>
+                        </Label>
+                      </div>
                     </RadioGroup>
                   </CardContent>
                 </Card>
 
-                {/* Card Details */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Thông tin thẻ</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cardName">Tên trên thẻ *</Label>
-                      <Input
-                        id="cardName"
-                        value={cardName}
-                        onChange={(e) => setCardName(e.target.value)}
-                        placeholder="NGUYEN VAN A"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Số thẻ *</Label>
-                      <Input
-                        id="cardNumber"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                {/* Card Details - Show only for card payment */}
+                {paymentMethod === 'card' && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Thông tin thẻ</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="expiryDate">Ngày hết hạn *</Label>
+                        <Label htmlFor="cardName">Tên trên thẻ *</Label>
                         <Input
-                          id="expiryDate"
-                          value={expiryDate}
-                          onChange={(e) => setExpiryDate(e.target.value)}
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          required
+                          id="cardName"
+                          value={cardName}
+                          onChange={(e) => setCardName(e.target.value)}
+                          placeholder="NGUYEN VAN A"
+                          required={paymentMethod === 'card'}
                         />
                       </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="cvv">CVV *</Label>
+                        <Label htmlFor="cardNumber">Số thẻ *</Label>
                         <Input
-                          id="cvv"
-                          type="password"
-                          value={cvv}
-                          onChange={(e) => setCvv(e.target.value)}
-                          placeholder="•••"
-                          maxLength={4}
-                          required
+                          id="cardNumber"
+                          value={cardNumber}
+                          onChange={(e) => setCardNumber(e.target.value)}
+                          placeholder="1234 5678 9012 3456"
+                          maxLength={19}
+                          required={paymentMethod === 'card'}
                         />
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground pt-4">
-                      <Lock className="w-4 h-4" />
-                      Thông tin thanh toán được mã hóa an toàn
-                    </div>
-                  </CardContent>
-                </Card>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="expiryDate">Ngày hết hạn *</Label>
+                          <Input
+                            id="expiryDate"
+                            value={expiryDate}
+                            onChange={(e) => setExpiryDate(e.target.value)}
+                            placeholder="MM/YY"
+                            maxLength={5}
+                            required={paymentMethod === 'card'}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cvv">CVV *</Label>
+                          <Input
+                            id="cvv"
+                            type="password"
+                            value={cvv}
+                            onChange={(e) => setCvv(e.target.value)}
+                            placeholder="•••"
+                            maxLength={4}
+                            required={paymentMethod === 'card'}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground pt-4">
+                        <Lock className="w-4 h-4" />
+                        Thông tin thanh toán được mã hóa an toàn
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* PayPal Instructions */}
+                {paymentMethod === 'paypal' && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Thanh toán qua PayPal</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">
+                        Bạn sẽ được chuyển đến trang PayPal để hoàn tất thanh toán sau khi nhấn nút "Thanh toán".
+                      </p>
+                      <div className="bg-muted/50 p-4 rounded-lg flex items-center gap-3">
+                        <div className="w-12 h-12 bg-[#003087] rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">P</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Thanh toán an toàn với PayPal</p>
+                          <p className="text-sm text-muted-foreground">Bảo vệ người mua hàng</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Bank Transfer Instructions */}
+                {paymentMethod === 'bank' && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Thông tin chuyển khoản</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-muted-foreground">
+                        Vui lòng chuyển khoản đến tài khoản sau và ghi nội dung chuyển khoản là email của bạn.
+                      </p>
+                      
+                      <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Ngân hàng:</span>
+                          <span className="font-medium text-foreground">{bankName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Số tài khoản:</span>
+                          <span className="font-medium text-foreground font-mono">{bankAccount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Chủ tài khoản:</span>
+                          <span className="font-medium text-foreground">{bankHolder}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Số tiền:</span>
+                          <span className="font-bold text-primary text-lg">${finalTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Nội dung CK:</span>
+                          <span className="font-medium text-foreground font-mono">{email}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-muted-foreground">
+                        Sau khi chuyển khoản thành công, đơn hàng sẽ được xác nhận trong vòng 1-2 giờ làm việc.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Button 
                   type="submit" 
@@ -336,7 +520,7 @@ const Checkout = () => {
                   ) : (
                     <>
                       <Lock className="w-4 h-4 mr-2" />
-                      Thanh toán ${finalTotal.toFixed(2)}
+                      {paymentMethod === 'bank' ? 'Xác nhận đơn hàng' : `Thanh toán $${finalTotal.toFixed(2)}`}
                     </>
                   )}
                 </Button>
