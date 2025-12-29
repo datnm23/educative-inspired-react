@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Presentation } from "lucide-react";
+import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Presentation, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
+import { useUserRole } from "@/hooks/useUserRole";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const { itemCount } = useCart();
+  const { isAdmin } = useUserRole();
 
   const handleSignOut = async () => {
     await signOut();
@@ -116,6 +118,12 @@ const Navbar = () => {
                         <Presentation className="w-4 h-4 mr-2" />
                         Quản lý giảng viên
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem onClick={() => navigate('/admin')}>
+                          <Shield className="w-4 h-4 mr-2" />
+                          Quản trị Admin
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate('/settings')}>
                         <Settings className="w-4 h-4 mr-2" />
