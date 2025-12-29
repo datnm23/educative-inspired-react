@@ -15,6 +15,8 @@ import {
   Eye,
   EyeOff,
   Star,
+  Filter,
+  X,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -112,6 +114,11 @@ const AdminDashboard = () => {
   // Courses state
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseSearchTerm, setCourseSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterLevel, setFilterLevel] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterFeatured, setFilterFeatured] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const [isCourseDialogOpen, setIsCourseDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [courseForm, setCourseForm] = useState({
@@ -425,11 +432,49 @@ const AdminDashboard = () => {
       u.id.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
 
-  const filteredCourses = courses.filter(
-    (c) =>
+  const filteredCourses = courses.filter((c) => {
+    // Search filter
+    const matchesSearch =
       c.title.toLowerCase().includes(courseSearchTerm.toLowerCase()) ||
-      c.category.toLowerCase().includes(courseSearchTerm.toLowerCase())
-  );
+      c.category.toLowerCase().includes(courseSearchTerm.toLowerCase()) ||
+      (c.instructor_name?.toLowerCase().includes(courseSearchTerm.toLowerCase()) ?? false) ||
+      (c.description?.toLowerCase().includes(courseSearchTerm.toLowerCase()) ?? false);
+
+    // Category filter
+    const matchesCategory = filterCategory === "all" || c.category === filterCategory;
+
+    // Level filter
+    const matchesLevel = filterLevel === "all" || c.level === filterLevel;
+
+    // Status filter
+    const matchesStatus =
+      filterStatus === "all" ||
+      (filterStatus === "published" && c.is_published) ||
+      (filterStatus === "draft" && !c.is_published);
+
+    // Featured filter
+    const matchesFeatured =
+      filterFeatured === "all" ||
+      (filterFeatured === "featured" && c.is_featured) ||
+      (filterFeatured === "normal" && !c.is_featured);
+
+    return matchesSearch && matchesCategory && matchesLevel && matchesStatus && matchesFeatured;
+  });
+
+  const clearFilters = () => {
+    setCourseSearchTerm("");
+    setFilterCategory("all");
+    setFilterLevel("all");
+    setFilterStatus("all");
+    setFilterFeatured("all");
+  };
+
+  const hasActiveFilters =
+    courseSearchTerm !== "" ||
+    filterCategory !== "all" ||
+    filterLevel !== "all" ||
+    filterStatus !== "all" ||
+    filterFeatured !== "all";
 
   if (authLoading || roleLoading) {
     return (
@@ -519,28 +564,121 @@ const AdminDashboard = () => {
           <TabsContent value="courses" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <div>
-                    <CardTitle>Danh sách khóa học</CardTitle>
-                    <CardDescription>
-                      Quản lý tất cả khóa học trong hệ thống
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Tìm kiếm..."
-                        className="pl-9 w-64"
-                        value={courseSearchTerm}
-                        onChange={(e) => setCourseSearchTerm(e.target.value)}
-                      />
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div>
+                      <CardTitle>Danh sách khóa học</CardTitle>
+                      <CardDescription>
+                        Quản lý tất cả khóa học trong hệ thống
+                        {hasActiveFilters && (
+                          <span className="ml-2 text-primary">
+                            ({filteredCourses.length} kết quả)
+                          </span>
+                        )}
+                      </CardDescription>
                     </div>
-                    <Button onClick={() => openCourseDialog()} className="gap-2">
-                      <Plus className="w-4 h-4" />
-                      Thêm khóa học
-                    </Button>
+                    <div className="flex gap-2 flex-wrap">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Tìm kiếm tên, mô tả, giảng viên..."
+                          className="pl-9 w-72"
+                          value={courseSearchTerm}
+                          onChange={(e) => setCourseSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        variant={showFilters ? "secondary" : "outline"}
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="gap-2"
+                      >
+                        <Filter className="w-4 h-4" />
+                        Lọc
+                        {hasActiveFilters && (
+                          <Badge variant="default" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                            !
+                          </Badge>
+                        )}
+                      </Button>
+                      {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                          <X className="w-4 h-4" />
+                          Xóa bộ lọc
+                        </Button>
+                      )}
+                      <Button onClick={() => openCourseDialog()} className="gap-2">
+                        <Plus className="w-4 h-4" />
+                        Thêm khóa học
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Filters Panel */}
+                  {showFilters && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Danh mục</Label>
+                        <Select value={filterCategory} onValueChange={setFilterCategory}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tất cả" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả danh mục</SelectItem>
+                            <SelectItem value="Frontend">Frontend</SelectItem>
+                            <SelectItem value="Backend">Backend</SelectItem>
+                            <SelectItem value="Mobile">Mobile</SelectItem>
+                            <SelectItem value="DevOps">DevOps</SelectItem>
+                            <SelectItem value="Data Science">Data Science</SelectItem>
+                            <SelectItem value="AI/ML">AI/ML</SelectItem>
+                            <SelectItem value="Khác">Khác</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Cấp độ</Label>
+                        <Select value={filterLevel} onValueChange={setFilterLevel}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tất cả" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả cấp độ</SelectItem>
+                            <SelectItem value="Cơ bản">Cơ bản</SelectItem>
+                            <SelectItem value="Trung cấp">Trung cấp</SelectItem>
+                            <SelectItem value="Nâng cao">Nâng cao</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Trạng thái</Label>
+                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tất cả" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                            <SelectItem value="published">Đã xuất bản</SelectItem>
+                            <SelectItem value="draft">Bản nháp</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Nổi bật</Label>
+                        <Select value={filterFeatured} onValueChange={setFilterFeatured}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tất cả" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả</SelectItem>
+                            <SelectItem value="featured">Khóa học nổi bật</SelectItem>
+                            <SelectItem value="normal">Khóa học thường</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
