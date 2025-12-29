@@ -17,6 +17,9 @@ import {
   Star,
   Filter,
   X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -118,6 +121,7 @@ const AdminDashboard = () => {
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterFeatured, setFilterFeatured] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
   const [showFilters, setShowFilters] = useState(false);
   const [isCourseDialogOpen, setIsCourseDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -461,12 +465,39 @@ const AdminDashboard = () => {
     return matchesSearch && matchesCategory && matchesLevel && matchesStatus && matchesFeatured;
   });
 
+  // Sort courses
+  const sortedCourses = [...filteredCourses].sort((a, b) => {
+    switch (sortBy) {
+      case "newest":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "oldest":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case "price-high":
+        return b.price - a.price;
+      case "price-low":
+        return a.price - b.price;
+      case "students-high":
+        return (b.total_students || 0) - (a.total_students || 0);
+      case "students-low":
+        return (a.total_students || 0) - (b.total_students || 0);
+      case "rating-high":
+        return (b.rating || 0) - (a.rating || 0);
+      case "title-asc":
+        return a.title.localeCompare(b.title, 'vi');
+      case "title-desc":
+        return b.title.localeCompare(a.title, 'vi');
+      default:
+        return 0;
+    }
+  });
+
   const clearFilters = () => {
     setCourseSearchTerm("");
     setFilterCategory("all");
     setFilterLevel("all");
     setFilterStatus("all");
     setFilterFeatured("all");
+    setSortBy("newest");
   };
 
   const hasActiveFilters =
@@ -474,7 +505,8 @@ const AdminDashboard = () => {
     filterCategory !== "all" ||
     filterLevel !== "all" ||
     filterStatus !== "all" ||
-    filterFeatured !== "all";
+    filterFeatured !== "all" ||
+    sortBy !== "newest";
 
   if (authLoading || roleLoading) {
     return (
@@ -677,6 +709,77 @@ const AdminDashboard = () => {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div className="space-y-2 col-span-2 md:col-span-4 border-t pt-4 mt-2">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                          <ArrowUpDown className="w-3 h-3" />
+                          Sắp xếp theo
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant={sortBy === "newest" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("newest")}
+                            className="gap-1"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                            Mới nhất
+                          </Button>
+                          <Button
+                            variant={sortBy === "oldest" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("oldest")}
+                            className="gap-1"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                            Cũ nhất
+                          </Button>
+                          <Button
+                            variant={sortBy === "price-high" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("price-high")}
+                            className="gap-1"
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            Giá cao → thấp
+                          </Button>
+                          <Button
+                            variant={sortBy === "price-low" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("price-low")}
+                            className="gap-1"
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            Giá thấp → cao
+                          </Button>
+                          <Button
+                            variant={sortBy === "students-high" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("students-high")}
+                            className="gap-1"
+                          >
+                            <Users className="w-3 h-3" />
+                            Học viên nhiều nhất
+                          </Button>
+                          <Button
+                            variant={sortBy === "rating-high" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("rating-high")}
+                            className="gap-1"
+                          >
+                            <Star className="w-3 h-3" />
+                            Đánh giá cao
+                          </Button>
+                          <Button
+                            variant={sortBy === "title-asc" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSortBy("title-asc")}
+                            className="gap-1"
+                          >
+                            A → Z
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -686,7 +789,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
-                ) : filteredCourses.length === 0 ? (
+                ) : sortedCourses.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Chưa có khóa học nào</p>
@@ -707,7 +810,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredCourses.map((course) => (
+                      {sortedCourses.map((course) => (
                         <TableRow key={course.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
