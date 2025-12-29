@@ -77,6 +77,8 @@ import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
 import AdminCharts from "@/components/admin/AdminCharts";
 import Pagination from "@/components/admin/Pagination";
+import { InstructorApprovalTab } from "@/components/admin/InstructorApprovalTab";
+import { CourseApprovalTab } from "@/components/admin/CourseApprovalTab";
 
 interface UserData {
   id: string;
@@ -930,12 +932,19 @@ const AdminDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="courses" className="space-y-4">
-          <TabsList>
+        <Tabs defaultValue="approvals" className="space-y-4">
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="approvals">Duyệt</TabsTrigger>
             <TabsTrigger value="courses">Quản lý khóa học</TabsTrigger>
             <TabsTrigger value="users">Quản lý người dùng</TabsTrigger>
             <TabsTrigger value="roles">Phân quyền</TabsTrigger>
           </TabsList>
+
+          {/* Approvals Tab */}
+          <TabsContent value="approvals" className="space-y-6">
+            <InstructorApprovalTab />
+            <CourseApprovalTab />
+          </TabsContent>
 
           {/* Courses Tab */}
           <TabsContent value="courses" className="space-y-4">

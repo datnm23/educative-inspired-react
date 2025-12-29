@@ -40,6 +40,10 @@ export type Database = {
       }
       courses: {
         Row: {
+          approval_notes: string | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           category: string
           created_at: string
           description: string | null
@@ -61,6 +65,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_notes?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           category?: string
           created_at?: string
           description?: string | null
@@ -82,6 +90,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_notes?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           category?: string
           created_at?: string
           description?: string | null
@@ -101,6 +113,54 @@ export type Database = {
           total_lessons?: number | null
           total_students?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      instructor_applications: {
+        Row: {
+          bio: string | null
+          created_at: string
+          experience_years: number | null
+          expertise: string[] | null
+          full_name: string
+          id: string
+          notes: string | null
+          portfolio_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          experience_years?: number | null
+          expertise?: string[] | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          portfolio_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          experience_years?: number | null
+          expertise?: string[] | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          portfolio_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
