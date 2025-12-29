@@ -16,6 +16,13 @@ import {
 } from "recharts";
 import { TrendingUp, Users, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Course {
   id: string;
@@ -36,16 +43,27 @@ interface AdminChartsProps {
   courses: Course[];
 }
 
-interface MonthlyData {
-  month: string;
+type TimeRange = "7d" | "30d" | "3m" | "6m" | "1y";
+
+interface DataPoint {
+  label: string;
   revenue: number;
   students: number;
   date: Date;
 }
 
+const TIME_RANGES: { value: TimeRange; label: string }[] = [
+  { value: "7d", label: "7 ngày" },
+  { value: "30d", label: "30 ngày" },
+  { value: "3m", label: "3 tháng" },
+  { value: "6m", label: "6 tháng" },
+  { value: "1y", label: "1 năm" },
+];
+
 const AdminCharts = ({ courses }: AdminChartsProps) => {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRange>("6m");
 
   // Fetch real enrollment data
   useEffect(() => {
@@ -81,56 +99,155 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
     return map;
   }, [courses]);
 
-  // Generate real data for revenue and students over time (last 6 months)
-  const monthlyData = useMemo(() => {
-    const months: MonthlyData[] = [];
+  // Get date range based on selected time range
+  const getDateRange = useMemo(() => {
     const now = new Date();
+    const endDate = new Date(now);
+    let startDate: Date;
+    let groupBy: "day" | "week" | "month";
 
-    // Create 6 months of data
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthName = date.toLocaleDateString("vi-VN", {
-        month: "short",
-        year: "2-digit",
-      });
-
-      months.push({
-        month: monthName,
-        revenue: 0,
-        students: 0,
-        date: date,
-      });
+    switch (timeRange) {
+      case "7d":
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        groupBy = "day";
+        break;
+      case "30d":
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 30);
+        groupBy = "day";
+        break;
+      case "3m":
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 3);
+        groupBy = "week";
+        break;
+      case "6m":
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 6);
+        groupBy = "month";
+        break;
+      case "1y":
+        startDate = new Date(now);
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        groupBy = "month";
+        break;
+      default:
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 6);
+        groupBy = "month";
     }
 
-    // Aggregate enrollments by month
+    return { startDate, endDate, groupBy };
+  }, [timeRange]);
+
+  // Generate time-based data points
+  const timeData = useMemo(() => {
+    const { startDate, endDate, groupBy } = getDateRange;
+    const dataPoints: DataPoint[] = [];
+
+    if (groupBy === "day") {
+      // Generate daily data points
+      const current = new Date(startDate);
+      while (current <= endDate) {
+        dataPoints.push({
+          label: current.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+          }),
+          revenue: 0,
+          students: 0,
+          date: new Date(current),
+        });
+        current.setDate(current.getDate() + 1);
+      }
+    } else if (groupBy === "week") {
+      // Generate weekly data points
+      const current = new Date(startDate);
+      let weekNum = 1;
+      while (current <= endDate) {
+        const weekEnd = new Date(current);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        dataPoints.push({
+          label: `T${weekNum}`,
+          revenue: 0,
+          students: 0,
+          date: new Date(current),
+        });
+        current.setDate(current.getDate() + 7);
+        weekNum++;
+      }
+    } else {
+      // Generate monthly data points
+      const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      while (current <= endDate) {
+        dataPoints.push({
+          label: current.toLocaleDateString("vi-VN", {
+            month: "short",
+            year: "2-digit",
+          }),
+          revenue: 0,
+          students: 0,
+          date: new Date(current),
+        });
+        current.setMonth(current.getMonth() + 1);
+      }
+    }
+
+    // Aggregate enrollments into data points
     enrollments.forEach((enrollment) => {
       const enrollDate = new Date(enrollment.enrolled_at);
+      if (enrollDate < startDate || enrollDate > endDate) return;
+
       const course = courseMap.get(enrollment.course_id);
 
-      // Find matching month
-      const monthIndex = months.findIndex((m) => {
-        return (
-          m.date.getMonth() === enrollDate.getMonth() &&
-          m.date.getFullYear() === enrollDate.getFullYear()
-        );
-      });
+      // Find matching data point
+      let matchIndex = -1;
 
-      if (monthIndex !== -1) {
-        months[monthIndex].students += 1;
+      if (groupBy === "day") {
+        matchIndex = dataPoints.findIndex(
+          (dp) =>
+            dp.date.toDateString() === enrollDate.toDateString()
+        );
+      } else if (groupBy === "week") {
+        matchIndex = dataPoints.findIndex((dp) => {
+          const weekEnd = new Date(dp.date);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          return enrollDate >= dp.date && enrollDate <= weekEnd;
+        });
+      } else {
+        matchIndex = dataPoints.findIndex(
+          (dp) =>
+            dp.date.getMonth() === enrollDate.getMonth() &&
+            dp.date.getFullYear() === enrollDate.getFullYear()
+        );
+      }
+
+      if (matchIndex !== -1) {
+        dataPoints[matchIndex].students += 1;
         if (course) {
-          months[monthIndex].revenue += course.price;
+          dataPoints[matchIndex].revenue += course.price;
         }
       }
     });
 
-    return months;
-  }, [enrollments, courseMap]);
+    return dataPoints;
+  }, [enrollments, courseMap, getDateRange]);
 
-  // Generate category distribution data from real enrollments
+  // Filter enrollments for the selected time range
+  const filteredEnrollments = useMemo(() => {
+    const { startDate, endDate } = getDateRange;
+    return enrollments.filter((e) => {
+      const enrollDate = new Date(e.enrolled_at);
+      return enrollDate >= startDate && enrollDate <= endDate;
+    });
+  }, [enrollments, getDateRange]);
+
+  // Generate category distribution data from filtered enrollments
   const categoryData = useMemo(() => {
     const categoryMap = new Map<string, { students: number; revenue: number }>();
 
-    enrollments.forEach((enrollment) => {
+    filteredEnrollments.forEach((enrollment) => {
       const course = courseMap.get(enrollment.course_id);
       if (course) {
         const category = course.category || "Khác";
@@ -149,7 +266,7 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
         revenue: data.revenue,
       }))
       .sort((a, b) => b.students - a.students);
-  }, [enrollments, courseMap]);
+  }, [filteredEnrollments, courseMap]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) {
@@ -186,9 +303,9 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
     },
   };
 
-  // Calculate totals for display
-  const totalStudents = enrollments.length;
-  const totalRevenue = enrollments.reduce((acc, e) => {
+  // Calculate totals for the selected time range
+  const totalStudents = filteredEnrollments.length;
+  const totalRevenue = filteredEnrollments.reduce((acc, e) => {
     const course = courseMap.get(e.course_id);
     return acc + (course?.price || 0);
   }, 0);
@@ -203,6 +320,23 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
 
   return (
     <div className="space-y-6 mb-8">
+      {/* Time Range Filter */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Thống kê</h3>
+        <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Chọn thời gian" />
+          </SelectTrigger>
+          <SelectContent>
+            {TIME_RANGES.map((range) => (
+              <SelectItem key={range.value} value={range.value}>
+                {range.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -213,13 +347,17 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                 currency: "VND",
               }).format(totalRevenue)}
             </div>
-            <p className="text-xs text-muted-foreground">Tổng doanh thu</p>
+            <p className="text-xs text-muted-foreground">
+              Doanh thu ({TIME_RANGES.find((r) => r.value === timeRange)?.label})
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-chart-2">{totalStudents}</div>
-            <p className="text-xs text-muted-foreground">Tổng đăng ký</p>
+            <p className="text-xs text-muted-foreground">
+              Đăng ký ({TIME_RANGES.find((r) => r.value === timeRange)?.label})
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -249,13 +387,13 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-medium flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              Doanh thu theo thời gian (6 tháng gần nhất)
+              Doanh thu theo thời gian
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={revenueChartConfig} className="h-[250px] w-full">
               <AreaChart
-                data={monthlyData}
+                data={timeData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
               >
                 <defs>
@@ -266,7 +404,7 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
-                  dataKey="month"
+                  dataKey="label"
                   tick={{ fontSize: 12 }}
                   tickLine={false}
                   axisLine={false}
@@ -307,13 +445,13 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-medium flex items-center gap-2">
               <Users className="h-4 w-4 text-chart-2" />
-              Học viên đăng ký theo thời gian (6 tháng gần nhất)
+              Học viên đăng ký theo thời gian
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={studentsChartConfig} className="h-[250px] w-full">
               <AreaChart
-                data={monthlyData}
+                data={timeData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
               >
                 <defs>
@@ -324,7 +462,7 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
-                  dataKey="month"
+                  dataKey="label"
                   tick={{ fontSize: 12 }}
                   tickLine={false}
                   axisLine={false}
