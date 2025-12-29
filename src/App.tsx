@@ -28,6 +28,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import InstructorProfile from "./pages/InstructorProfile";
 import InstructorDashboard from "./pages/InstructorDashboard";
+import BecomeInstructor from "./pages/BecomeInstructor";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/instructors/:id" element={<InstructorProfile />} />
               <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
+              <Route path="/become-instructor" element={<BecomeInstructor />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Presentation, Shield } from "lucide-react";
+import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Presentation, Shield, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -28,7 +28,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const { itemCount } = useCart();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isInstructor } = useUserRole();
 
   const handleSignOut = async () => {
     await signOut();
@@ -114,10 +114,17 @@ const Navbar = () => {
                         <Receipt className="w-4 h-4 mr-2" />
                         Lịch sử thanh toán
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/instructor-dashboard')}>
-                        <Presentation className="w-4 h-4 mr-2" />
-                        Quản lý giảng viên
-                      </DropdownMenuItem>
+                      {isInstructor ? (
+                        <DropdownMenuItem onClick={() => navigate('/instructor-dashboard')}>
+                          <Presentation className="w-4 h-4 mr-2" />
+                          Quản lý giảng viên
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onClick={() => navigate('/become-instructor')}>
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Trở thành giảng viên
+                        </DropdownMenuItem>
+                      )}
                       {isAdmin && (
                         <DropdownMenuItem onClick={() => navigate('/admin')}>
                           <Shield className="w-4 h-4 mr-2" />
