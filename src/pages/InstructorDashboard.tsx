@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, BookOpen, Users, Bell, TrendingUp, Edit, Trash2 } from "lucide-react";
+import { Plus, BookOpen, Users, Bell, TrendingUp, Edit, Trash2, ListVideo } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -226,6 +226,15 @@ const InstructorDashboard = () => {
                     </div>
                     
                     <div className="flex md:flex-col gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1"
+                        onClick={() => navigate(`/instructor/courses/${course.id}/lessons`)}
+                      >
+                        <ListVideo className="w-3 h-3" />
+                        Bài học
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 

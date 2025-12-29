@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import EditCourse from "./pages/EditCourse";
+import ManageLessons from "./pages/ManageLessons";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -33,7 +34,6 @@ import CreateCourse from "./pages/CreateCourse";
 import BecomeInstructor from "./pages/BecomeInstructor";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -70,6 +70,7 @@ const App = () => (
               <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
               <Route path="/instructor/create-course" element={<CreateCourse />} />
               <Route path="/instructor/edit-course/:id" element={<EditCourse />} />
+              <Route path="/instructor/courses/:courseId/lessons" element={<ManageLessons />} />
               <Route path="/become-instructor" element={<BecomeInstructor />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="*" element={<NotFound />} />
