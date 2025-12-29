@@ -68,16 +68,45 @@ export const InstructorApprovalTab = () => {
     }
   };
 
+  const sendNotificationEmail = async (app: InstructorApplication, status: "approved" | "rejected", notes: string) => {
+    try {
+      // Get user email from auth (we'll need to fetch it)
+      const { data: userData } = await supabase.auth.admin.getUserById(app.user_id);
+      const email = userData?.user?.email;
+
+      if (!email) {
+        console.log("No email found for user, skipping notification");
+        return;
+      }
+
+      await supabase.functions.invoke("send-instructor-notification", {
+        body: {
+          email,
+          fullName: app.full_name,
+          status,
+          notes: notes || undefined,
+        },
+      });
+
+      console.log("Notification sent successfully");
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      // Don't throw - email failure shouldn't block the approval process
+    }
+  };
+
   const handleAction = async () => {
     if (!selectedApp || !actionType || !user) return;
 
     setProcessing(true);
     try {
+      const newStatus = actionType === "approve" ? "approved" : "rejected";
+      
       // Update application status
       const { error: updateError } = await supabase
         .from("instructor_applications")
         .update({
-          status: actionType === "approve" ? "approved" : "rejected",
+          status: newStatus,
           notes: notes || null,
           reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
@@ -99,6 +128,9 @@ export const InstructorApprovalTab = () => {
           throw roleError;
         }
       }
+
+      // Send email notification
+      await sendNotificationEmail(selectedApp, newStatus as "approved" | "rejected", notes);
 
       toast.success(
         actionType === "approve"
