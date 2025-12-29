@@ -8,28 +8,47 @@ import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   CreditCard, Lock, ArrowLeft, CheckCircle2, ShoppingCart,
-  Loader2
+  Loader2, MapPin, Tag, X, Check
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
+// Mock discount codes
+const DISCOUNT_CODES: Record<string, { percent: number; description: string }> = {
+  "SAVE10": { percent: 10, description: "Giảm 10%" },
+  "SAVE20": { percent: 20, description: "Giảm 20%" },
+  "WELCOME": { percent: 15, description: "Giảm 15% cho người mới" },
+};
 
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
   const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
   
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [processing, setProcessing] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  // Form state
+  // Form state - Payment
   const [cardNumber, setCardNumber] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
   const [cardName, setCardName] = useState("");
+
+  // Form state - Billing Address
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("Việt Nam");
+
+  // Discount code
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; percent: number } | null>(null);
+  const [discountError, setDiscountError] = useState("");
 
   if (authLoading) {
     return (
@@ -47,6 +66,33 @@ const Checkout = () => {
     return <Navigate to="/cart" replace />;
   }
 
+  const handleApplyDiscount = () => {
+    const code = discountCode.trim().toUpperCase();
+    setDiscountError("");
+
+    if (!code) {
+      setDiscountError("Vui lòng nhập mã giảm giá");
+      return;
+    }
+
+    const discount = DISCOUNT_CODES[code];
+    if (discount) {
+      setAppliedDiscount({ code, percent: discount.percent });
+      toast.success(`Áp dụng thành công: ${discount.description}`);
+      setDiscountCode("");
+    } else {
+      setDiscountError("Mã giảm giá không hợp lệ");
+    }
+  };
+
+  const removeDiscount = () => {
+    setAppliedDiscount(null);
+    toast.info("Đã xóa mã giảm giá");
+  };
+
+  const discountAmount = appliedDiscount ? (total * appliedDiscount.percent) / 100 : 0;
+  const finalTotal = total - discountAmount;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
@@ -58,10 +104,7 @@ const Checkout = () => {
     setCompleted(true);
     clearCart();
 
-    toast({
-      title: "Thanh toán thành công!",
-      description: "Bạn đã được đăng ký vào các khóa học",
-    });
+    toast.success("Thanh toán thành công!");
   };
 
   if (completed) {
@@ -101,7 +144,7 @@ const Checkout = () => {
       <Navbar />
       
       <main className="flex-1 py-12">
-        <div className="container max-w-4xl">
+        <div className="container max-w-5xl">
           <Link 
             to="/cart" 
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -115,8 +158,86 @@ const Checkout = () => {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Payment Form */}
             <div className="lg:col-span-2">
-              <form onSubmit={handleSubmit}>
-                <Card className="mb-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Billing Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="w-5 h-5" />
+                      Thông tin thanh toán
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName">Họ và tên *</Label>
+                        <Input
+                          id="fullName"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Nguyễn Văn A"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="email@example.com"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Số điện thoại *</Label>
+                        <Input
+                          id="phone"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="0901234567"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="country">Quốc gia</Label>
+                        <Input
+                          id="country"
+                          value={country}
+                          onChange={(e) => setCountry(e.target.value)}
+                          placeholder="Việt Nam"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Địa chỉ</Label>
+                      <Input
+                        id="address"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="123 Đường ABC, Quận 1"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Thành phố</Label>
+                      <Input
+                        id="city"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="TP. Hồ Chí Minh"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Method */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="w-5 h-5" />
@@ -139,13 +260,14 @@ const Checkout = () => {
                   </CardContent>
                 </Card>
 
+                {/* Card Details */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Thông tin thẻ</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="cardName">Tên trên thẻ</Label>
+                      <Label htmlFor="cardName">Tên trên thẻ *</Label>
                       <Input
                         id="cardName"
                         value={cardName}
@@ -156,7 +278,7 @@ const Checkout = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Số thẻ</Label>
+                      <Label htmlFor="cardNumber">Số thẻ *</Label>
                       <Input
                         id="cardNumber"
                         value={cardNumber}
@@ -169,7 +291,7 @@ const Checkout = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="expiryDate">Ngày hết hạn</Label>
+                        <Label htmlFor="expiryDate">Ngày hết hạn *</Label>
                         <Input
                           id="expiryDate"
                           value={expiryDate}
@@ -180,7 +302,7 @@ const Checkout = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="cvv">CVV</Label>
+                        <Label htmlFor="cvv">CVV *</Label>
                         <Input
                           id="cvv"
                           type="password"
@@ -203,7 +325,7 @@ const Checkout = () => {
                 <Button 
                   type="submit" 
                   size="lg" 
-                  className="w-full mt-6"
+                  className="w-full"
                   disabled={processing}
                 >
                   {processing ? (
@@ -214,7 +336,7 @@ const Checkout = () => {
                   ) : (
                     <>
                       <Lock className="w-4 h-4 mr-2" />
-                      Thanh toán ${total}
+                      Thanh toán ${finalTotal.toFixed(2)}
                     </>
                   )}
                 </Button>
@@ -251,9 +373,77 @@ const Checkout = () => {
 
                   <Separator className="my-4" />
 
+                  {/* Discount Code Input */}
+                  <div className="mb-4">
+                    <Label className="flex items-center gap-2 mb-2">
+                      <Tag className="w-4 h-4" />
+                      Mã giảm giá
+                    </Label>
+                    {appliedDiscount ? (
+                      <div className="flex items-center justify-between p-3 bg-accent/10 border border-accent/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Check className="w-4 h-4 text-accent" />
+                          <span className="text-sm font-medium text-accent">
+                            {appliedDiscount.code} (-{appliedDiscount.percent}%)
+                          </span>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={removeDiscount}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          value={discountCode}
+                          onChange={(e) => {
+                            setDiscountCode(e.target.value);
+                            setDiscountError("");
+                          }}
+                          placeholder="Nhập mã giảm giá"
+                          className="flex-1"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={handleApplyDiscount}
+                        >
+                          Áp dụng
+                        </Button>
+                      </div>
+                    )}
+                    {discountError && (
+                      <p className="text-sm text-destructive mt-1">{discountError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Thử: SAVE10, SAVE20, WELCOME
+                    </p>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Price Summary */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Tạm tính</span>
+                      <span className="text-foreground">${total.toFixed(2)}</span>
+                    </div>
+                    {appliedDiscount && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-accent">Giảm giá ({appliedDiscount.percent}%)</span>
+                        <span className="text-accent">-${discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-4" />
+
                   <div className="flex justify-between font-bold">
                     <span className="text-foreground">Tổng cộng</span>
-                    <span className="text-foreground text-xl">${total}</span>
+                    <span className="text-foreground text-xl">${finalTotal.toFixed(2)}</span>
                   </div>
                 </CardContent>
               </Card>
