@@ -3,10 +3,12 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, User, Clock, ArrowLeft, Share2, Bookmark, ThumbsUp, MessageSquare } from "lucide-react";
+import { Calendar, Clock, ArrowLeft, Share2, Bookmark, ThumbsUp, MessageSquare } from "lucide-react";
+import { useSavedPosts } from "@/hooks/useSavedPosts";
+import { cn } from "@/lib/utils";
 
 const blogPosts = [
   {
@@ -134,6 +136,8 @@ const relatedPosts = [
 const BlogPost = () => {
   const { id } = useParams();
   const post = blogPosts.find((p) => p.id === id);
+  const { toggleSavePost, isPostSaved } = useSavedPosts();
+  const isSaved = id ? isPostSaved(id) : false;
 
   if (!post) {
     return (
@@ -220,9 +224,14 @@ const BlogPost = () => {
                 <Share2 className="h-4 w-4 mr-2" />
                 Chia sẻ
               </Button>
-              <Button variant="outline" size="sm">
-                <Bookmark className="h-4 w-4 mr-2" />
-                Lưu
+              <Button 
+                variant={isSaved ? "default" : "outline"} 
+                size="sm"
+                onClick={() => id && toggleSavePost(id)}
+                className={cn(isSaved && "bg-primary")}
+              >
+                <Bookmark className={cn("h-4 w-4 mr-2", isSaved && "fill-current")} />
+                {isSaved ? "Đã lưu" : "Lưu"}
               </Button>
             </div>
 
