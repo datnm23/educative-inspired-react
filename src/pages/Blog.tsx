@@ -5,7 +5,9 @@ import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Search, Calendar, User, ArrowRight, Clock } from "lucide-react";
+import { Search, Calendar, User, ArrowRight, Clock, Bookmark } from "lucide-react";
+import { useSavedPosts } from "@/hooks/useSavedPosts";
+import { cn } from "@/lib/utils";
 
 const blogPosts = [
   {
@@ -81,6 +83,7 @@ const categories = ["Tất cả", "Công nghệ", "Lập trình", "Kỹ năng", 
 const Blog = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
+  const { toggleSavePost, isPostSaved } = useSavedPosts();
 
   const filteredPosts = blogPosts.filter((post) => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,6 +160,20 @@ const Blog = () => {
                       <Badge className="absolute top-4 left-4 bg-primary">
                         {post.category}
                       </Badge>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleSavePost(post.id);
+                        }}
+                        className={cn(
+                          "absolute top-4 right-4 p-2 rounded-full transition-all duration-200",
+                          isPostSaved(post.id)
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background/80 text-foreground hover:bg-background"
+                        )}
+                      >
+                        <Bookmark className={cn("h-4 w-4", isPostSaved(post.id) && "fill-current")} />
+                      </button>
                     </div>
                     <CardHeader>
                       <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
@@ -213,6 +230,20 @@ const Blog = () => {
                       <Badge className="absolute top-3 left-3 bg-secondary text-secondary-foreground">
                         {post.category}
                       </Badge>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleSavePost(post.id);
+                        }}
+                        className={cn(
+                          "absolute top-3 right-3 p-2 rounded-full transition-all duration-200",
+                          isPostSaved(post.id)
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background/80 text-foreground hover:bg-background"
+                        )}
+                      >
+                        <Bookmark className={cn("h-4 w-4", isPostSaved(post.id) && "fill-current")} />
+                      </button>
                     </div>
                     <CardHeader className="flex-grow">
                       <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
