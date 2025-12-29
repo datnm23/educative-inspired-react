@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { label: "Khóa học", href: "/courses", hasDropdown: false },
+  { label: "Blog", href: "/blog", hasDropdown: false },
   { label: "Bảng giá", href: "/pricing", hasDropdown: false },
   { label: "Về chúng tôi", href: "/about", hasDropdown: false },
   { label: "Hỗ trợ", href: "/faq", hasDropdown: false },
