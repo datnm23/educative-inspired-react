@@ -15,7 +15,8 @@ import {
   Bar,
   Legend,
 } from "recharts";
-import { TrendingUp, Users, Loader2, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { TrendingUp, Users, Loader2, Download, ArrowUpDown, ArrowUp, ArrowDown, Mail } from "lucide-react";
+import { EmailReportScheduler } from "./EmailReportScheduler";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
@@ -818,6 +819,17 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
           </Card>
         )}
       </div>
+
+      {/* Email Report Scheduler */}
+      <EmailReportScheduler 
+        reportData={{
+          totalRevenue,
+          totalStudents,
+          totalCourses: courses.length,
+          revenueChange,
+          studentsChange
+        }}
+      />
     </div>
   );
 };
