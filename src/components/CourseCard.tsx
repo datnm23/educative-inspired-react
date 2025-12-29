@@ -1,7 +1,8 @@
+import { Link } from "react-router-dom";
 import { BookOpen, Users, Clock, Star, Bookmark } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface CourseCardProps {
+  id?: string;
   title: string;
   description: string;
   type: "course" | "path" | "project";
@@ -19,6 +20,7 @@ const typeStyles = {
 };
 
 const CourseCard = ({
+  id = "1",
   title,
   description,
   type,
@@ -28,11 +30,17 @@ const CourseCard = ({
   students = 1234,
 }: CourseCardProps) => {
   return (
-    <div className="group bg-card rounded-xl border border-border overflow-hidden card-hover cursor-pointer">
+    <Link 
+      to={`/courses/${id}`}
+      className="group bg-card rounded-xl border border-border overflow-hidden card-hover cursor-pointer block"
+    >
       {/* Image Placeholder */}
       <div className="relative h-40 bg-gradient-to-br from-primary/20 to-accent/20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
-        <button className="absolute top-3 right-3 p-2 bg-card/80 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          className="absolute top-3 right-3 p-2 bg-card/80 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => e.preventDefault()}
+        >
           <Bookmark className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
@@ -79,7 +87,7 @@ const CourseCard = ({
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
 

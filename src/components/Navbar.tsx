@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { label: "Explore", href: "#", hasDropdown: true },
+  { label: "Explore", href: "/courses", hasDropdown: false },
   { label: "Pricing", href: "#" },
   { label: "For Business", href: "#" },
   { label: "Resources", href: "#", hasDropdown: true },
@@ -11,6 +12,7 @@ const navItems = [
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
@@ -18,24 +20,26 @@ const Navbar = () => {
         <nav className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center gap-8">
-            <a href="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-lg">E</span>
               </div>
               <span className="font-bold text-xl text-foreground">EduLearn</span>
-            </a>
+            </Link>
 
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-6">
               {navItems.map((item) => (
-                <a
+                <Link
                   key={item.label}
-                  href={item.href}
-                  className="nav-link flex items-center gap-1 text-sm font-medium"
+                  to={item.href}
+                  className={`nav-link flex items-center gap-1 text-sm font-medium ${
+                    location.pathname === item.href ? "text-foreground" : ""
+                  }`}
                 >
                   {item.label}
                   {item.hasDropdown && <ChevronDown className="w-4 h-4" />}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -75,14 +79,15 @@ const Navbar = () => {
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <div className="flex flex-col gap-4">
               {navItems.map((item) => (
-                <a
+                <Link
                   key={item.label}
-                  href={item.href}
+                  to={item.href}
                   className="flex items-center justify-between py-2 text-foreground"
+                  onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
                   {item.hasDropdown && <ChevronDown className="w-4 h-4" />}
-                </a>
+                </Link>
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Button variant="outline" className="w-full">

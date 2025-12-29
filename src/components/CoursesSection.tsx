@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import CourseCard from "./CourseCard";
 
 const categories = [
@@ -13,6 +14,7 @@ const categories = [
 
 const courses = [
   {
+    id: "1",
     title: "Grokking Modern System Design Interview",
     description: "Master the fundamentals of system design and ace your technical interviews at top companies.",
     type: "course" as const,
@@ -22,6 +24,7 @@ const courses = [
     students: 45230,
   },
   {
+    id: "2",
     title: "Grokking the Coding Interview: Patterns",
     description: "Learn 16 coding patterns to solve any coding interview question effectively.",
     type: "course" as const,
@@ -31,6 +34,7 @@ const courses = [
     students: 67890,
   },
   {
+    id: "3",
     title: "Web Development Learning Path",
     description: "Complete path from beginner to professional full-stack web developer.",
     type: "path" as const,
@@ -40,6 +44,7 @@ const courses = [
     students: 23456,
   },
   {
+    id: "4",
     title: "Build a Real-time Chat Application",
     description: "Hands-on project to build a complete chat app with React and Node.js.",
     type: "project" as const,
@@ -49,6 +54,7 @@ const courses = [
     students: 12345,
   },
   {
+    id: "5",
     title: "Machine Learning Fundamentals",
     description: "Learn ML from scratch with Python, NumPy, and scikit-learn.",
     type: "course" as const,
@@ -58,6 +64,7 @@ const courses = [
     students: 34567,
   },
   {
+    id: "6",
     title: "AWS Certified Solutions Architect",
     description: "Prepare for AWS certification with hands-on labs and practice exams.",
     type: "course" as const,
@@ -67,6 +74,7 @@ const courses = [
     students: 28901,
   },
   {
+    id: "7",
     title: "React & TypeScript Mastery",
     description: "Build type-safe, scalable applications with React and TypeScript.",
     type: "course" as const,
@@ -76,6 +84,7 @@ const courses = [
     students: 19234,
   },
   {
+    id: "8",
     title: "Data Structures & Algorithms in Python",
     description: "Master essential data structures and algorithms for coding interviews.",
     type: "course" as const,
@@ -123,7 +132,7 @@ const CoursesSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {courses.map((course, index) => (
             <div
-              key={course.title}
+              key={course.id}
               className="animate-fade-in-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
@@ -134,10 +143,13 @@ const CoursesSection = () => {
 
         {/* View All Button */}
         <div className="text-center mt-12">
-          <button className="inline-flex items-center gap-2 text-primary font-semibold hover:underline">
+          <Link 
+            to="/courses"
+            className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
+          >
             View all courses
             <span className="text-lg">→</span>
-          </button>
+          </Link>
         </div>
       </div>
     </section>
