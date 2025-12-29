@@ -1,1 +1,4 @@
 project_id = "cnrwytzmhoaqbnrktgre"
+
+[functions.send-course-notification]
+verify_jwt = false
