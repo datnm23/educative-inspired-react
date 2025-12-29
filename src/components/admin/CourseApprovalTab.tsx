@@ -32,6 +32,7 @@ interface Course {
   category: string;
   level: string;
   price: number;
+  instructor_id: string | null;
   instructor_name: string | null;
   approval_status: string;
   approval_notes: string | null;
@@ -58,7 +59,7 @@ export const CourseApprovalTab = () => {
     try {
       const { data, error } = await supabase
         .from("courses")
-        .select("id, title, short_description, category, level, price, instructor_name, approval_status, approval_notes, created_at, thumbnail_url")
+        .select("id, title, short_description, category, level, price, instructor_id, instructor_name, approval_status, approval_notes, created_at, thumbnail_url")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -71,13 +72,44 @@ export const CourseApprovalTab = () => {
     }
   };
 
+  const sendNotificationEmail = async (course: Course, status: "approved" | "rejected", notes: string) => {
+    try {
+      if (!course.instructor_id) {
+        console.log("No instructor_id found, skipping notification");
+        return;
+      }
+
+      // Get instructor email from auth
+      const { data, error } = await supabase.functions.invoke("send-course-approval-notification", {
+        body: {
+          email: "", // Will be fetched by edge function if needed
+          instructorName: course.instructor_name || "Giảng viên",
+          courseTitle: course.title,
+          status,
+          notes: notes || undefined,
+        },
+      });
+
+      if (error) {
+        console.error("Error calling notification function:", error);
+      } else {
+        console.log("Notification sent:", data);
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      // Don't throw - email failure shouldn't block the approval process
+    }
+  };
+
   const handleAction = async () => {
     if (!selectedCourse || !actionType || !user) return;
 
     setProcessing(true);
     try {
+      const newStatus = actionType === "approve" ? "approved" : "rejected";
+      
       const updateData: Record<string, unknown> = {
-        approval_status: actionType === "approve" ? "approved" : "rejected",
+        approval_status: newStatus,
         approval_notes: notes || null,
         approved_by: user.id,
         approved_at: new Date().toISOString(),
@@ -94,6 +126,9 @@ export const CourseApprovalTab = () => {
         .eq("id", selectedCourse.id);
 
       if (error) throw error;
+
+      // Send email notification to instructor
+      await sendNotificationEmail(selectedCourse, newStatus as "approved" | "rejected", notes);
 
       toast.success(
         actionType === "approve"
