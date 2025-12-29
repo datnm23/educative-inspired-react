@@ -1,13 +1,15 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
   Play, Clock, BookOpen, Users, Star, Award, CheckCircle, 
   ChevronDown, ChevronRight, Globe, Calendar, BarChart3,
-  Share2, Heart, ArrowLeft
+  Share2, Heart, ArrowLeft, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useCourseProgress } from "@/hooks/useCourseProgress";
 
 const courseData = {
   id: "1",
@@ -104,7 +106,12 @@ const courseData = {
 
 const CourseDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [expandedSections, setExpandedSections] = useState<number[]>([0]);
+  const [enrolling, setEnrolling] = useState(false);
+  
+  const { user } = useAuth();
+  const { enrollInCourse, isEnrolled, loading: progressLoading } = useCourseProgress();
 
   const toggleSection = (index: number) => {
     setExpandedSections((prev) =>
@@ -116,6 +123,24 @@ const CourseDetail = () => {
     (acc, section) => acc + section.lessons.length,
     0
   );
+
+  const courseId = id || courseData.id;
+  const enrolled = isEnrolled(courseId);
+
+  const handleEnroll = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    
+    setEnrolling(true);
+    const success = await enrollInCourse(courseId);
+    setEnrolling(false);
+    
+    if (success) {
+      navigate('/my-learning');
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -210,12 +235,39 @@ const CourseDetail = () => {
                     </span>
                   </div>
 
-                  <Button variant="hero" size="lg" className="w-full mb-3">
-                    Enroll Now
-                  </Button>
-                  <Button variant="outline" size="lg" className="w-full mb-4">
-                    Try for Free
-                  </Button>
+                  {enrolled ? (
+                    <Button 
+                      variant="hero" 
+                      size="lg" 
+                      className="w-full mb-3"
+                      onClick={() => navigate('/my-learning')}
+                    >
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Tiếp tục học
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="hero" 
+                      size="lg" 
+                      className="w-full mb-3"
+                      onClick={handleEnroll}
+                      disabled={enrolling || progressLoading}
+                    >
+                      {enrolling ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Đang đăng ký...
+                        </>
+                      ) : (
+                        'Đăng ký ngay'
+                      )}
+                    </Button>
+                  )}
+                  {!enrolled && (
+                    <Button variant="outline" size="lg" className="w-full mb-4">
+                      Học thử miễn phí
+                    </Button>
+                  )}
 
                   <p className="text-center text-sm text-muted-foreground mb-6">
                     30-day money-back guarantee
