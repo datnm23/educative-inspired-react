@@ -4,17 +4,18 @@ import { Mail, Twitter, Linkedin, Github, Youtube } from "lucide-react";
 const footerLinks = {
   Product: [
     { label: "Khóa học", href: "/courses" },
+    { label: "Lộ trình học tập", href: "/learning-paths" },
     { label: "Blog", href: "/blog" },
     { label: "Bảng giá", href: "/pricing" },
-    { label: "Dashboard", href: "/dashboard" },
   ],
   Company: [
     { label: "Về chúng tôi", href: "/about" },
     { label: "Liên hệ", href: "/contact" },
+    { label: "FAQ", href: "/faq" },
   ],
-  Support: [
-    { label: "Trung tâm hỗ trợ", href: "/faq" },
-    { label: "Liên hệ", href: "/contact" },
+  Legal: [
+    { label: "Chính sách bảo mật", href: "/privacy" },
+    { label: "Điều khoản sử dụng", href: "/terms" },
   ],
 };
 
