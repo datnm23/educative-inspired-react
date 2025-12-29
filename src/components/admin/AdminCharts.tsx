@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -13,8 +13,9 @@ import {
   CartesianGrid,
   BarChart,
   Bar,
+  Legend,
 } from "recharts";
-import { TrendingUp, Users, Loader2 } from "lucide-react";
+import { TrendingUp, Users, Loader2, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
@@ -23,6 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface Course {
   id: string;
@@ -49,6 +60,8 @@ interface DataPoint {
   label: string;
   revenue: number;
   students: number;
+  prevRevenue?: number;
+  prevStudents?: number;
   date: Date;
 }
 
@@ -64,6 +77,7 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>("6m");
+  const [compareMode, setCompareMode] = useState(false);
 
   // Fetch real enrollment data
   useEffect(() => {
@@ -105,134 +119,160 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
     const endDate = new Date(now);
     let startDate: Date;
     let groupBy: "day" | "week" | "month";
+    let durationMs: number;
 
     switch (timeRange) {
       case "7d":
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 7);
         groupBy = "day";
+        durationMs = 7 * 24 * 60 * 60 * 1000;
         break;
       case "30d":
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 30);
         groupBy = "day";
+        durationMs = 30 * 24 * 60 * 60 * 1000;
         break;
       case "3m":
         startDate = new Date(now);
         startDate.setMonth(startDate.getMonth() - 3);
         groupBy = "week";
+        durationMs = 90 * 24 * 60 * 60 * 1000;
         break;
       case "6m":
         startDate = new Date(now);
         startDate.setMonth(startDate.getMonth() - 6);
         groupBy = "month";
+        durationMs = 180 * 24 * 60 * 60 * 1000;
         break;
       case "1y":
         startDate = new Date(now);
         startDate.setFullYear(startDate.getFullYear() - 1);
         groupBy = "month";
+        durationMs = 365 * 24 * 60 * 60 * 1000;
         break;
       default:
         startDate = new Date(now);
         startDate.setMonth(startDate.getMonth() - 6);
         groupBy = "month";
+        durationMs = 180 * 24 * 60 * 60 * 1000;
     }
 
-    return { startDate, endDate, groupBy };
+    // Previous period for comparison
+    const prevEndDate = new Date(startDate.getTime() - 1);
+    const prevStartDate = new Date(prevEndDate.getTime() - durationMs);
+
+    return { startDate, endDate, groupBy, prevStartDate, prevEndDate, durationMs };
   }, [timeRange]);
 
-  // Generate time-based data points
-  const timeData = useMemo(() => {
-    const { startDate, endDate, groupBy } = getDateRange;
-    const dataPoints: DataPoint[] = [];
-
-    if (groupBy === "day") {
-      // Generate daily data points
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        dataPoints.push({
-          label: current.toLocaleDateString("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-          }),
-          revenue: 0,
-          students: 0,
-          date: new Date(current),
-        });
-        current.setDate(current.getDate() + 1);
-      }
-    } else if (groupBy === "week") {
-      // Generate weekly data points
-      const current = new Date(startDate);
-      let weekNum = 1;
-      while (current <= endDate) {
-        const weekEnd = new Date(current);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        dataPoints.push({
-          label: `T${weekNum}`,
-          revenue: 0,
-          students: 0,
-          date: new Date(current),
-        });
-        current.setDate(current.getDate() + 7);
-        weekNum++;
-      }
-    } else {
-      // Generate monthly data points
-      const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-      while (current <= endDate) {
-        dataPoints.push({
-          label: current.toLocaleDateString("vi-VN", {
-            month: "short",
-            year: "2-digit",
-          }),
-          revenue: 0,
-          students: 0,
-          date: new Date(current),
-        });
-        current.setMonth(current.getMonth() + 1);
-      }
-    }
-
-    // Aggregate enrollments into data points
-    enrollments.forEach((enrollment) => {
-      const enrollDate = new Date(enrollment.enrolled_at);
-      if (enrollDate < startDate || enrollDate > endDate) return;
-
-      const course = courseMap.get(enrollment.course_id);
-
-      // Find matching data point
-      let matchIndex = -1;
+  // Calculate data for a specific period
+  const calculatePeriodData = useCallback(
+    (startDate: Date, endDate: Date, groupBy: "day" | "week" | "month") => {
+      const dataPoints: DataPoint[] = [];
 
       if (groupBy === "day") {
-        matchIndex = dataPoints.findIndex(
-          (dp) =>
-            dp.date.toDateString() === enrollDate.toDateString()
-        );
+        const current = new Date(startDate);
+        while (current <= endDate) {
+          dataPoints.push({
+            label: current.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            revenue: 0,
+            students: 0,
+            date: new Date(current),
+          });
+          current.setDate(current.getDate() + 1);
+        }
       } else if (groupBy === "week") {
-        matchIndex = dataPoints.findIndex((dp) => {
-          const weekEnd = new Date(dp.date);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          return enrollDate >= dp.date && enrollDate <= weekEnd;
-        });
+        const current = new Date(startDate);
+        let weekNum = 1;
+        while (current <= endDate) {
+          dataPoints.push({
+            label: `T${weekNum}`,
+            revenue: 0,
+            students: 0,
+            date: new Date(current),
+          });
+          current.setDate(current.getDate() + 7);
+          weekNum++;
+        }
       } else {
-        matchIndex = dataPoints.findIndex(
-          (dp) =>
-            dp.date.getMonth() === enrollDate.getMonth() &&
-            dp.date.getFullYear() === enrollDate.getFullYear()
-        );
-      }
-
-      if (matchIndex !== -1) {
-        dataPoints[matchIndex].students += 1;
-        if (course) {
-          dataPoints[matchIndex].revenue += course.price;
+        const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        while (current <= endDate) {
+          dataPoints.push({
+            label: current.toLocaleDateString("vi-VN", {
+              month: "short",
+              year: "2-digit",
+            }),
+            revenue: 0,
+            students: 0,
+            date: new Date(current),
+          });
+          current.setMonth(current.getMonth() + 1);
         }
       }
-    });
 
-    return dataPoints;
-  }, [enrollments, courseMap, getDateRange]);
+      // Aggregate enrollments into data points
+      enrollments.forEach((enrollment) => {
+        const enrollDate = new Date(enrollment.enrolled_at);
+        if (enrollDate < startDate || enrollDate > endDate) return;
+
+        const course = courseMap.get(enrollment.course_id);
+
+        let matchIndex = -1;
+
+        if (groupBy === "day") {
+          matchIndex = dataPoints.findIndex(
+            (dp) => dp.date.toDateString() === enrollDate.toDateString()
+          );
+        } else if (groupBy === "week") {
+          matchIndex = dataPoints.findIndex((dp) => {
+            const weekEnd = new Date(dp.date);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            return enrollDate >= dp.date && enrollDate <= weekEnd;
+          });
+        } else {
+          matchIndex = dataPoints.findIndex(
+            (dp) =>
+              dp.date.getMonth() === enrollDate.getMonth() &&
+              dp.date.getFullYear() === enrollDate.getFullYear()
+          );
+        }
+
+        if (matchIndex !== -1) {
+          dataPoints[matchIndex].students += 1;
+          if (course) {
+            dataPoints[matchIndex].revenue += course.price;
+          }
+        }
+      });
+
+      return dataPoints;
+    },
+    [enrollments, courseMap]
+  );
+
+  // Generate time-based data points with comparison
+  const timeData = useMemo(() => {
+    const { startDate, endDate, groupBy, prevStartDate, prevEndDate } = getDateRange;
+
+    const currentData = calculatePeriodData(startDate, endDate, groupBy);
+    
+    if (!compareMode) {
+      return currentData;
+    }
+
+    const prevData = calculatePeriodData(prevStartDate, prevEndDate, groupBy);
+
+    // Merge previous data into current data for comparison
+    return currentData.map((dp, index) => ({
+      ...dp,
+      prevRevenue: prevData[index]?.revenue || 0,
+      prevStudents: prevData[index]?.students || 0,
+    }));
+  }, [getDateRange, calculatePeriodData, compareMode]);
 
   // Filter enrollments for the selected time range
   const filteredEnrollments = useMemo(() => {
@@ -240,6 +280,15 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
     return enrollments.filter((e) => {
       const enrollDate = new Date(e.enrolled_at);
       return enrollDate >= startDate && enrollDate <= endDate;
+    });
+  }, [enrollments, getDateRange]);
+
+  // Previous period enrollments
+  const prevFilteredEnrollments = useMemo(() => {
+    const { prevStartDate, prevEndDate } = getDateRange;
+    return enrollments.filter((e) => {
+      const enrollDate = new Date(e.enrolled_at);
+      return enrollDate >= prevStartDate && enrollDate <= prevEndDate;
     });
   }, [enrollments, getDateRange]);
 
@@ -278,17 +327,179 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
     return value.toString();
   };
 
+  const formatFullCurrency = (value: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(value);
+  };
+
+  // Calculate totals for the selected time range
+  const totalStudents = filteredEnrollments.length;
+  const totalRevenue = filteredEnrollments.reduce((acc, e) => {
+    const course = courseMap.get(e.course_id);
+    return acc + (course?.price || 0);
+  }, 0);
+
+  // Previous period totals
+  const prevTotalStudents = prevFilteredEnrollments.length;
+  const prevTotalRevenue = prevFilteredEnrollments.reduce((acc, e) => {
+    const course = courseMap.get(e.course_id);
+    return acc + (course?.price || 0);
+  }, 0);
+
+  // Calculate percentage changes
+  const revenueChange = prevTotalRevenue > 0 
+    ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 
+    : totalRevenue > 0 ? 100 : 0;
+  
+  const studentsChange = prevTotalStudents > 0 
+    ? ((totalStudents - prevTotalStudents) / prevTotalStudents) * 100 
+    : totalStudents > 0 ? 100 : 0;
+
+  // Export functions
+  const exportToCSV = useCallback(() => {
+    const headers = compareMode
+      ? ["Thời gian", "Doanh thu hiện tại", "Học viên hiện tại", "Doanh thu kỳ trước", "Học viên kỳ trước"]
+      : ["Thời gian", "Doanh thu", "Học viên"];
+
+    const rows = timeData.map((dp) =>
+      compareMode
+        ? [dp.label, dp.revenue, dp.students, dp.prevRevenue || 0, dp.prevStudents || 0]
+        : [dp.label, dp.revenue, dp.students]
+    );
+
+    // Add summary
+    rows.push([]);
+    rows.push(["Tổng kết"]);
+    rows.push(["Tổng doanh thu hiện tại", totalRevenue]);
+    rows.push(["Tổng học viên hiện tại", totalStudents]);
+    if (compareMode) {
+      rows.push(["Tổng doanh thu kỳ trước", prevTotalRevenue]);
+      rows.push(["Tổng học viên kỳ trước", prevTotalStudents]);
+      rows.push(["% Thay đổi doanh thu", `${revenueChange.toFixed(1)}%`]);
+      rows.push(["% Thay đổi học viên", `${studentsChange.toFixed(1)}%`]);
+    }
+
+    // Add category data
+    rows.push([]);
+    rows.push(["Phân bố theo danh mục"]);
+    rows.push(["Danh mục", "Học viên", "Doanh thu"]);
+    categoryData.forEach((cat) => {
+      rows.push([cat.name, cat.students, cat.revenue]);
+    });
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `bao-cao-thong-ke-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    
+    toast.success("Đã xuất báo cáo CSV thành công!");
+  }, [timeData, totalRevenue, totalStudents, prevTotalRevenue, prevTotalStudents, revenueChange, studentsChange, categoryData, compareMode]);
+
+  const exportToExcel = useCallback(() => {
+    // Create Excel-compatible XML
+    const timeRangeLabel = TIME_RANGES.find((r) => r.value === timeRange)?.label || timeRange;
+    
+    let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles>
+  <Style ss:ID="header"><Font ss:Bold="1"/><Interior ss:Color="#4472C4" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF"/></Style>
+  <Style ss:ID="currency"><NumberFormat ss:Format="#,##0"/></Style>
+  <Style ss:ID="percent"><NumberFormat ss:Format="0.0%"/></Style>
+  <Style ss:ID="title"><Font ss:Bold="1" ss:Size="14"/></Style>
+</Styles>
+<Worksheet ss:Name="Báo cáo thống kê">
+<Table>
+  <Row><Cell ss:StyleID="title"><Data ss:Type="String">Báo cáo thống kê - ${timeRangeLabel}</Data></Cell></Row>
+  <Row><Cell><Data ss:Type="String">Ngày xuất: ${new Date().toLocaleDateString("vi-VN")}</Data></Cell></Row>
+  <Row></Row>
+  <Row>
+    ${compareMode 
+      ? `<Cell ss:StyleID="header"><Data ss:Type="String">Thời gian</Data></Cell>
+         <Cell ss:StyleID="header"><Data ss:Type="String">Doanh thu hiện tại</Data></Cell>
+         <Cell ss:StyleID="header"><Data ss:Type="String">Học viên hiện tại</Data></Cell>
+         <Cell ss:StyleID="header"><Data ss:Type="String">Doanh thu kỳ trước</Data></Cell>
+         <Cell ss:StyleID="header"><Data ss:Type="String">Học viên kỳ trước</Data></Cell>`
+      : `<Cell ss:StyleID="header"><Data ss:Type="String">Thời gian</Data></Cell>
+         <Cell ss:StyleID="header"><Data ss:Type="String">Doanh thu</Data></Cell>
+         <Cell ss:StyleID="header"><Data ss:Type="String">Học viên</Data></Cell>`}
+  </Row>`;
+
+    timeData.forEach((dp) => {
+      xmlContent += `<Row>
+    <Cell><Data ss:Type="String">${dp.label}</Data></Cell>
+    <Cell ss:StyleID="currency"><Data ss:Type="Number">${dp.revenue}</Data></Cell>
+    <Cell><Data ss:Type="Number">${dp.students}</Data></Cell>
+    ${compareMode ? `<Cell ss:StyleID="currency"><Data ss:Type="Number">${dp.prevRevenue || 0}</Data></Cell>
+    <Cell><Data ss:Type="Number">${dp.prevStudents || 0}</Data></Cell>` : ""}
+  </Row>`;
+    });
+
+    // Summary section
+    xmlContent += `<Row></Row>
+  <Row><Cell ss:StyleID="title"><Data ss:Type="String">Tổng kết</Data></Cell></Row>
+  <Row><Cell><Data ss:Type="String">Tổng doanh thu hiện tại</Data></Cell><Cell ss:StyleID="currency"><Data ss:Type="Number">${totalRevenue}</Data></Cell></Row>
+  <Row><Cell><Data ss:Type="String">Tổng học viên hiện tại</Data></Cell><Cell><Data ss:Type="Number">${totalStudents}</Data></Cell></Row>`;
+
+    if (compareMode) {
+      xmlContent += `<Row><Cell><Data ss:Type="String">Tổng doanh thu kỳ trước</Data></Cell><Cell ss:StyleID="currency"><Data ss:Type="Number">${prevTotalRevenue}</Data></Cell></Row>
+  <Row><Cell><Data ss:Type="String">Tổng học viên kỳ trước</Data></Cell><Cell><Data ss:Type="Number">${prevTotalStudents}</Data></Cell></Row>
+  <Row><Cell><Data ss:Type="String">% Thay đổi doanh thu</Data></Cell><Cell><Data ss:Type="String">${revenueChange.toFixed(1)}%</Data></Cell></Row>
+  <Row><Cell><Data ss:Type="String">% Thay đổi học viên</Data></Cell><Cell><Data ss:Type="String">${studentsChange.toFixed(1)}%</Data></Cell></Row>`;
+    }
+
+    // Category section
+    xmlContent += `<Row></Row>
+  <Row><Cell ss:StyleID="title"><Data ss:Type="String">Phân bố theo danh mục</Data></Cell></Row>
+  <Row>
+    <Cell ss:StyleID="header"><Data ss:Type="String">Danh mục</Data></Cell>
+    <Cell ss:StyleID="header"><Data ss:Type="String">Học viên</Data></Cell>
+    <Cell ss:StyleID="header"><Data ss:Type="String">Doanh thu</Data></Cell>
+  </Row>`;
+
+    categoryData.forEach((cat) => {
+      xmlContent += `<Row>
+    <Cell><Data ss:Type="String">${cat.name}</Data></Cell>
+    <Cell><Data ss:Type="Number">${cat.students}</Data></Cell>
+    <Cell ss:StyleID="currency"><Data ss:Type="Number">${cat.revenue}</Data></Cell>
+  </Row>`;
+    });
+
+    xmlContent += `</Table></Worksheet></Workbook>`;
+
+    const blob = new Blob([xmlContent], { type: "application/vnd.ms-excel" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `bao-cao-thong-ke-${new Date().toISOString().split("T")[0]}.xls`;
+    link.click();
+    
+    toast.success("Đã xuất báo cáo Excel thành công!");
+  }, [timeData, totalRevenue, totalStudents, prevTotalRevenue, prevTotalStudents, revenueChange, studentsChange, categoryData, compareMode, timeRange]);
+
   const revenueChartConfig = {
     revenue: {
-      label: "Doanh thu",
+      label: "Doanh thu hiện tại",
       color: "hsl(var(--primary))",
+    },
+    prevRevenue: {
+      label: "Doanh thu kỳ trước",
+      color: "hsl(var(--muted-foreground))",
     },
   };
 
   const studentsChartConfig = {
     students: {
-      label: "Học viên",
+      label: "Học viên hiện tại",
       color: "hsl(var(--chart-2))",
+    },
+    prevStudents: {
+      label: "Học viên kỳ trước",
+      color: "hsl(var(--muted-foreground))",
     },
   };
 
@@ -303,12 +514,25 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
     },
   };
 
-  // Calculate totals for the selected time range
-  const totalStudents = filteredEnrollments.length;
-  const totalRevenue = filteredEnrollments.reduce((acc, e) => {
-    const course = courseMap.get(e.course_id);
-    return acc + (course?.price || 0);
-  }, 0);
+  const ChangeIndicator = ({ value, label }: { value: number; label: string }) => {
+    if (!compareMode) return null;
+    
+    const isPositive = value > 0;
+    const isZero = value === 0;
+    
+    return (
+      <div className={`flex items-center gap-1 text-xs ${isZero ? "text-muted-foreground" : isPositive ? "text-green-600" : "text-red-600"}`}>
+        {isZero ? (
+          <ArrowUpDown className="h-3 w-3" />
+        ) : isPositive ? (
+          <ArrowUp className="h-3 w-3" />
+        ) : (
+          <ArrowDown className="h-3 w-3" />
+        )}
+        <span>{isPositive ? "+" : ""}{value.toFixed(1)}% so với kỳ trước</span>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -320,21 +544,52 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
 
   return (
     <div className="space-y-6 mb-8">
-      {/* Time Range Filter */}
-      <div className="flex items-center justify-between">
+      {/* Time Range Filter & Controls */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">Thống kê</h3>
-        <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Chọn thời gian" />
-          </SelectTrigger>
-          <SelectContent>
-            {TIME_RANGES.map((range) => (
-              <SelectItem key={range.value} value={range.value}>
-                {range.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Compare Mode Toggle */}
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="compare-mode"
+              checked={compareMode}
+              onCheckedChange={setCompareMode}
+            />
+            <Label htmlFor="compare-mode" className="text-sm">So sánh kỳ trước</Label>
+          </div>
+
+          {/* Time Range Select */}
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Chọn thời gian" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIME_RANGES.map((range) => (
+                <SelectItem key={range.value} value={range.value}>
+                  {range.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Export Button */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Xuất báo cáo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToCSV}>
+                Xuất CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToExcel}>
+                Xuất Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -342,14 +597,17 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-primary">
-              {new Intl.NumberFormat("vi-VN", {
-                style: "currency",
-                currency: "VND",
-              }).format(totalRevenue)}
+              {formatFullCurrency(totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Doanh thu ({TIME_RANGES.find((r) => r.value === timeRange)?.label})
             </p>
+            <ChangeIndicator value={revenueChange} label="doanh thu" />
+            {compareMode && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Kỳ trước: {formatFullCurrency(prevTotalRevenue)}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -358,6 +616,12 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
             <p className="text-xs text-muted-foreground">
               Đăng ký ({TIME_RANGES.find((r) => r.value === timeRange)?.label})
             </p>
+            <ChangeIndicator value={studentsChange} label="học viên" />
+            {compareMode && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Kỳ trước: {prevTotalStudents}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -369,12 +633,7 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-chart-4">
-              {totalStudents > 0
-                ? new Intl.NumberFormat("vi-VN", {
-                    style: "currency",
-                    currency: "VND",
-                  }).format(totalRevenue / totalStudents)
-                : "0 ₫"}
+              {totalStudents > 0 ? formatFullCurrency(totalRevenue / totalStudents) : "0 ₫"}
             </div>
             <p className="text-xs text-muted-foreground">Doanh thu/Học viên</p>
           </CardContent>
@@ -401,6 +660,10 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="prevRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
@@ -419,22 +682,30 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      formatter={(value) =>
-                        new Intl.NumberFormat("vi-VN", {
-                          style: "currency",
-                          currency: "VND",
-                        }).format(Number(value))
-                      }
+                      formatter={(value) => formatFullCurrency(Number(value))}
                     />
                   }
                 />
+                {compareMode && (
+                  <Area
+                    type="monotone"
+                    dataKey="prevRevenue"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    fill="url(#prevRevenueGradient)"
+                    name="Kỳ trước"
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey="revenue"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   fill="url(#revenueGradient)"
+                  name="Hiện tại"
                 />
+                {compareMode && <Legend />}
               </AreaChart>
             </ChartContainer>
           </CardContent>
@@ -459,6 +730,10 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                     <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="prevStudentsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
@@ -478,13 +753,26 @@ const AdminCharts = ({ courses }: AdminChartsProps) => {
                     <ChartTooltipContent formatter={(value) => `${value} học viên`} />
                   }
                 />
+                {compareMode && (
+                  <Area
+                    type="monotone"
+                    dataKey="prevStudents"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    fill="url(#prevStudentsGradient)"
+                    name="Kỳ trước"
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey="students"
                   stroke="hsl(var(--chart-2))"
                   strokeWidth={2}
                   fill="url(#studentsGradient)"
+                  name="Hiện tại"
                 />
+                {compareMode && <Legend />}
               </AreaChart>
             </ChartContainer>
           </CardContent>
