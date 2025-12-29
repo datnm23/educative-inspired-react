@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Search, Menu, X, ChevronDown } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Search, Menu, X, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { label: "Explore", href: "/courses", hasDropdown: false },
@@ -13,6 +14,13 @@ const navItems = [
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
@@ -53,12 +61,29 @@ const Navbar = () => {
               </kbd>
             </button>
 
-            <Button variant="ghost" className="hidden md:inline-flex">
-              Log In
-            </Button>
-            <Button variant="hero" className="hidden md:inline-flex">
-              Join for free
-            </Button>
+            {!loading && (
+              user ? (
+                <>
+                  <Button variant="ghost" className="hidden md:inline-flex gap-2" onClick={() => navigate('/dashboard')}>
+                    <User className="w-4 h-4" />
+                    {user.email?.split('@')[0]}
+                  </Button>
+                  <Button variant="outline" className="hidden md:inline-flex gap-2" onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4" />
+                    Đăng xuất
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" className="hidden md:inline-flex" onClick={() => navigate('/auth')}>
+                    Đăng nhập
+                  </Button>
+                  <Button variant="hero" className="hidden md:inline-flex" onClick={() => navigate('/auth')}>
+                    Đăng ký miễn phí
+                  </Button>
+                </>
+              )
+            )}
 
             {/* Mobile Menu Button */}
             <button
@@ -90,12 +115,27 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button variant="outline" className="w-full">
-                  Log In
-                </Button>
-                <Button variant="hero" className="w-full">
-                  Join for free
-                </Button>
+                {user ? (
+                  <>
+                    <Button variant="outline" className="w-full gap-2" onClick={() => { navigate('/dashboard'); setIsMenuOpen(false); }}>
+                      <User className="w-4 h-4" />
+                      {user.email?.split('@')[0]}
+                    </Button>
+                    <Button variant="ghost" className="w-full gap-2" onClick={() => { handleSignOut(); setIsMenuOpen(false); }}>
+                      <LogOut className="w-4 h-4" />
+                      Đăng xuất
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" className="w-full" onClick={() => { navigate('/auth'); setIsMenuOpen(false); }}>
+                      Đăng nhập
+                    </Button>
+                    <Button variant="hero" className="w-full" onClick={() => { navigate('/auth'); setIsMenuOpen(false); }}>
+                      Đăng ký miễn phí
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
