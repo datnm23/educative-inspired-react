@@ -159,6 +159,8 @@ const AdminDashboard = () => {
 
   // Revenue time filter
   const [revenueTimeFilter, setRevenueTimeFilter] = useState<string>("all");
+  // Published courses time filter
+  const [publishedTimeFilter, setPublishedTimeFilter] = useState<string>("all");
 
   // Stats
   const [stats, setStats] = useState({
@@ -572,6 +574,45 @@ const AdminDashboard = () => {
     "1y": "1 năm"
   };
 
+  // Calculate filtered published courses based on time filter
+  const filteredPublishedCourses = useMemo(() => {
+    const publishedCourses = courses.filter(c => c.is_published);
+    
+    if (publishedTimeFilter === "all") {
+      return publishedCourses.length;
+    }
+
+    const now = new Date();
+    let startDate: Date;
+
+    switch (publishedTimeFilter) {
+      case "7d":
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "30d":
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case "3m":
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 3);
+        break;
+      case "6m":
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 6);
+        break;
+      case "1y":
+        startDate = new Date(now);
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        return publishedCourses.length;
+    }
+
+    return publishedCourses.filter(c => new Date(c.created_at) >= startDate).length;
+  }, [publishedTimeFilter, courses]);
+
   // Paginated courses
   const paginatedCourses = useMemo(() => {
     const startIndex = (courseCurrentPage - 1) * coursePageSize;
@@ -848,10 +889,27 @@ const AdminDashboard = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Khóa học đã xuất bản</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <Select value={publishedTimeFilter} onValueChange={setPublishedTimeFilter}>
+                <SelectTrigger className="w-[100px] h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="7d">7 ngày</SelectItem>
+                  <SelectItem value="30d">30 ngày</SelectItem>
+                  <SelectItem value="3m">3 tháng</SelectItem>
+                  <SelectItem value="6m">6 tháng</SelectItem>
+                  <SelectItem value="1y">1 năm</SelectItem>
+                </SelectContent>
+              </Select>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.publishedCourses}</div>
+              <div className="text-2xl font-bold">{filteredPublishedCourses}</div>
+              {publishedTimeFilter !== "all" && (
+                <p className="text-xs text-muted-foreground">
+                  Trong {revenueTimeLabels[publishedTimeFilter]}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
