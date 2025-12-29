@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
   Play, Clock, BookOpen, Users, Star, Award, CheckCircle, 
   ChevronDown, ChevronRight, Globe, Calendar, BarChart3,
-  Share2, Heart, ArrowLeft, Loader2
+  Share2, Heart, ArrowLeft, Loader2, ShoppingCart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
@@ -10,6 +10,8 @@ import Footer from "@/components/Footer";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
 
 const courseData = {
   id: "1",
@@ -112,6 +114,9 @@ const CourseDetail = () => {
   
   const { user } = useAuth();
   const { enrollInCourse, isEnrolled, loading: progressLoading } = useCourseProgress();
+  const { addItem, items } = useCart();
+  
+  const isInCart = items.some(item => item.id === courseId);
 
   const toggleSection = (index: number) => {
     setExpandedSections((prev) =>
@@ -246,27 +251,56 @@ const CourseDetail = () => {
                       Tiếp tục học
                     </Button>
                   ) : (
-                    <Button 
-                      variant="hero" 
-                      size="lg" 
-                      className="w-full mb-3"
-                      onClick={handleEnroll}
-                      disabled={enrolling || progressLoading}
-                    >
-                      {enrolling ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Đang đăng ký...
-                        </>
+                    <>
+                      <Button 
+                        variant="hero" 
+                        size="lg" 
+                        className="w-full mb-3"
+                        onClick={handleEnroll}
+                        disabled={enrolling || progressLoading}
+                      >
+                        {enrolling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Đang đăng ký...
+                          </>
+                        ) : (
+                          'Đăng ký ngay'
+                        )}
+                      </Button>
+                      
+                      {isInCart ? (
+                        <Button 
+                          variant="outline" 
+                          size="lg" 
+                          className="w-full mb-4"
+                          onClick={() => navigate('/cart')}
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Xem giỏ hàng
+                        </Button>
                       ) : (
-                        'Đăng ký ngay'
+                        <Button 
+                          variant="outline" 
+                          size="lg" 
+                          className="w-full mb-4"
+                          onClick={() => {
+                            addItem({
+                              id: courseId,
+                              title: courseData.title,
+                              instructor: courseData.instructor.name,
+                              price: courseData.price,
+                              originalPrice: courseData.originalPrice,
+                              image: "/placeholder.svg"
+                            });
+                            toast.success("Đã thêm vào giỏ hàng!");
+                          }}
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Thêm vào giỏ hàng
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                  {!enrolled && (
-                    <Button variant="outline" size="lg" className="w-full mb-4">
-                      Học thử miễn phí
-                    </Button>
+                    </>
                   )}
 
                   <p className="text-center text-sm text-muted-foreground mb-6">
