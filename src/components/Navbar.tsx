@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap } from "lucide-react";
+import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark, GraduationCap, ShoppingCart, Settings, Receipt, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navItems = [
   { label: "Khóa học", href: "/courses", hasDropdown: false },
+  { label: "Lộ trình", href: "/learning-paths", hasDropdown: false },
   { label: "Blog", href: "/blog", hasDropdown: false },
   { label: "Bảng giá", href: "/pricing", hasDropdown: false },
-  { label: "Về chúng tôi", href: "/about", hasDropdown: false },
   { label: "Hỗ trợ", href: "/faq", hasDropdown: false },
 ];
 
@@ -17,6 +25,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
+  const { itemCount } = useCart();
 
   const handleSignOut = async () => {
     await signOut();
@@ -54,13 +63,20 @@ const Navbar = () => {
           </div>
 
           {/* Right Side */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <button className="hidden md:flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <Search className="w-5 h-5" />
-              <kbd className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded text-xs text-muted-foreground">
-                ⌘K
-              </kbd>
             </button>
+
+            {/* Cart */}
+            <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/cart')}>
+              <ShoppingCart className="w-4 h-4" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
+            </Button>
 
             {!loading && (
               user ? (
@@ -71,14 +87,41 @@ const Navbar = () => {
                   <Button variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => navigate('/saved-posts')}>
                     <Bookmark className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" className="hidden md:inline-flex gap-2" onClick={() => navigate('/dashboard')}>
-                    <User className="w-4 h-4" />
-                    {user.email?.split('@')[0]}
-                  </Button>
-                  <Button variant="outline" className="hidden md:inline-flex gap-2" onClick={handleSignOut}>
-                    <LogOut className="w-4 h-4" />
-                    Đăng xuất
-                  </Button>
+                  
+                  {/* User Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="hidden md:inline-flex gap-2">
+                        <User className="w-4 h-4" />
+                        {user.email?.split('@')[0]}
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                        <User className="w-4 h-4 mr-2" />
+                        Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/my-learning')}>
+                        <GraduationCap className="w-4 h-4 mr-2" />
+                        Khóa học của tôi
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/payment-history')}>
+                        <Receipt className="w-4 h-4 mr-2" />
+                        Lịch sử thanh toán
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate('/settings')}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Cài đặt tài khoản
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Đăng xuất
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               ) : (
                 <>
@@ -132,9 +175,13 @@ const Navbar = () => {
                       <Bookmark className="w-4 h-4" />
                       Bài viết đã lưu
                     </Button>
-                    <Button variant="outline" className="w-full gap-2" onClick={() => { navigate('/dashboard'); setIsMenuOpen(false); }}>
-                      <User className="w-4 h-4" />
-                      {user.email?.split('@')[0]}
+                    <Button variant="outline" className="w-full gap-2" onClick={() => { navigate('/payment-history'); setIsMenuOpen(false); }}>
+                      <Receipt className="w-4 h-4" />
+                      Lịch sử thanh toán
+                    </Button>
+                    <Button variant="outline" className="w-full gap-2" onClick={() => { navigate('/settings'); setIsMenuOpen(false); }}>
+                      <Settings className="w-4 h-4" />
+                      Cài đặt
                     </Button>
                     <Button variant="ghost" className="w-full gap-2" onClick={() => { handleSignOut(); setIsMenuOpen(false); }}>
                       <LogOut className="w-4 h-4" />
