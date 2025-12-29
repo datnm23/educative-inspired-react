@@ -66,6 +66,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import ImageUpload from "@/components/ImageUpload";
 
 interface UserData {
   id: string;
@@ -1012,12 +1013,10 @@ const AdminDashboard = () => {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="thumbnail_url">URL ảnh bìa</Label>
-                <Input
-                  id="thumbnail_url"
+                <Label>Ảnh bìa khóa học</Label>
+                <ImageUpload
                   value={courseForm.thumbnail_url}
-                  onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })}
-                  placeholder="https://..."
+                  onChange={(url) => setCourseForm({ ...courseForm, thumbnail_url: url })}
                 />
               </div>
 
