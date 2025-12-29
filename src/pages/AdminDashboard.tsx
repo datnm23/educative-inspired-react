@@ -157,6 +157,9 @@ const AdminDashboard = () => {
   const [userCurrentPage, setUserCurrentPage] = useState(1);
   const [userPageSize, setUserPageSize] = useState(10);
 
+  // Revenue time filter
+  const [revenueTimeFilter, setRevenueTimeFilter] = useState<string>("all");
+
   // Stats
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -164,6 +167,9 @@ const AdminDashboard = () => {
     totalRevenue: 0,
     publishedCourses: 0,
   });
+
+  // Enrollments for revenue calculation
+  const [enrollments, setEnrollments] = useState<{ course_id: string; enrolled_at: string }[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -233,6 +239,13 @@ const AdminDashboard = () => {
         publishedCourses: data?.filter(c => c.is_published).length || 0,
         totalRevenue: data?.reduce((acc, c) => acc + (c.price * (c.total_students || 0)), 0) || 0,
       }));
+
+      // Fetch enrollments for time-based revenue
+      const { data: enrollmentData } = await supabase
+        .from("course_enrollments")
+        .select("course_id, enrolled_at");
+      
+      setEnrollments(enrollmentData || []);
     } catch (error) {
       console.error("Error fetching courses:", error);
     } finally {
@@ -507,6 +520,58 @@ const AdminDashboard = () => {
     }
   });
 
+  // Calculate filtered revenue based on time filter
+  const filteredRevenue = useMemo(() => {
+    if (revenueTimeFilter === "all") {
+      return stats.totalRevenue;
+    }
+
+    const now = new Date();
+    let startDate: Date;
+
+    switch (revenueTimeFilter) {
+      case "7d":
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "30d":
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case "3m":
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 3);
+        break;
+      case "6m":
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 6);
+        break;
+      case "1y":
+        startDate = new Date(now);
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        return stats.totalRevenue;
+    }
+
+    // Create a map of course prices
+    const courseMap = new Map(courses.map(c => [c.id, c.price]));
+
+    // Filter enrollments by date and sum revenue
+    return enrollments
+      .filter(e => new Date(e.enrolled_at) >= startDate)
+      .reduce((acc, e) => acc + (courseMap.get(e.course_id) || 0), 0);
+  }, [revenueTimeFilter, stats.totalRevenue, enrollments, courses]);
+
+  const revenueTimeLabels: Record<string, string> = {
+    "all": "Tất cả",
+    "7d": "7 ngày",
+    "30d": "30 ngày",
+    "3m": "3 tháng",
+    "6m": "6 tháng",
+    "1y": "1 năm"
+  };
+
   // Paginated courses
   const paginatedCourses = useMemo(() => {
     const startIndex = (courseCurrentPage - 1) * coursePageSize;
@@ -756,10 +821,27 @@ const AdminDashboard = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Doanh thu ước tính</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <Select value={revenueTimeFilter} onValueChange={setRevenueTimeFilter}>
+                <SelectTrigger className="w-[100px] h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="7d">7 ngày</SelectItem>
+                  <SelectItem value="30d">30 ngày</SelectItem>
+                  <SelectItem value="3m">3 tháng</SelectItem>
+                  <SelectItem value="6m">6 tháng</SelectItem>
+                  <SelectItem value="1y">1 năm</SelectItem>
+                </SelectContent>
+              </Select>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(filteredRevenue)}</div>
+              {revenueTimeFilter !== "all" && (
+                <p className="text-xs text-muted-foreground">
+                  Trong {revenueTimeLabels[revenueTimeFilter]}
+                </p>
+              )}
             </CardContent>
           </Card>
 
