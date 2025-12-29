@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Menu, X, ChevronDown, LogOut, User } from "lucide-react";
+import { Search, Menu, X, ChevronDown, LogOut, User, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -65,6 +65,9 @@ const Navbar = () => {
             {!loading && (
               user ? (
                 <>
+                  <Button variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => navigate('/saved-posts')}>
+                    <Bookmark className="w-4 h-4" />
+                  </Button>
                   <Button variant="ghost" className="hidden md:inline-flex gap-2" onClick={() => navigate('/dashboard')}>
                     <User className="w-4 h-4" />
                     {user.email?.split('@')[0]}
@@ -118,6 +121,10 @@ const Navbar = () => {
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 {user ? (
                   <>
+                    <Button variant="outline" className="w-full gap-2" onClick={() => { navigate('/saved-posts'); setIsMenuOpen(false); }}>
+                      <Bookmark className="w-4 h-4" />
+                      Bài viết đã lưu
+                    </Button>
                     <Button variant="outline" className="w-full gap-2" onClick={() => { navigate('/dashboard'); setIsMenuOpen(false); }}>
                       <User className="w-4 h-4" />
                       {user.email?.split('@')[0]}
