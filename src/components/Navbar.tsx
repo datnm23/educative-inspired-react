@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
-  { label: "Explore", href: "/courses", hasDropdown: false },
-  { label: "Dashboard", href: "/dashboard", hasDropdown: false },
-  { label: "Pricing", href: "#" },
-  { label: "For Business", href: "#" },
+  { label: "Khóa học", href: "/courses", hasDropdown: false },
+  { label: "Bảng giá", href: "/pricing", hasDropdown: false },
+  { label: "Về chúng tôi", href: "/about", hasDropdown: false },
+  { label: "Hỗ trợ", href: "/faq", hasDropdown: false },
 ];
 
 const Navbar = () => {

@@ -1,32 +1,19 @@
+import { Link } from "react-router-dom";
 import { Mail, Twitter, Linkedin, Github, Youtube } from "lucide-react";
 
 const footerLinks = {
   Product: [
-    { label: "Courses", href: "#" },
-    { label: "Learning Paths", href: "#" },
-    { label: "Projects", href: "#" },
-    { label: "Certifications", href: "#" },
-    { label: "Pricing", href: "#" },
+    { label: "Khóa học", href: "/courses" },
+    { label: "Bảng giá", href: "/pricing" },
+    { label: "Dashboard", href: "/dashboard" },
   ],
   Company: [
-    { label: "About Us", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Blog", href: "#" },
-    { label: "Press", href: "#" },
-    { label: "Contact", href: "#" },
+    { label: "Về chúng tôi", href: "/about" },
+    { label: "Liên hệ", href: "/contact" },
   ],
-  Resources: [
-    { label: "Documentation", href: "#" },
-    { label: "Help Center", href: "#" },
-    { label: "Community", href: "#" },
-    { label: "Developers", href: "#" },
-    { label: "API", href: "#" },
-  ],
-  Legal: [
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
-    { label: "Cookie Policy", href: "#" },
-    { label: "GDPR", href: "#" },
+  Support: [
+    { label: "Trung tâm hỗ trợ", href: "/faq" },
+    { label: "Liên hệ", href: "/contact" },
   ],
 };
 
@@ -78,12 +65,12 @@ const Footer = () => {
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="text-muted-foreground hover:text-foreground transition-colors text-sm"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
